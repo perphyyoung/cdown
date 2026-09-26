@@ -5,6 +5,7 @@ import { LogicalSize } from "@tauri-apps/api/dpi";
 import { emit } from "@tauri-apps/api/event";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { commands } from "@/bindings";
+import ConfirmDialog from "@/components/ConfirmDialog.vue";
 import SettingsRow from "./SettingsRow.vue";
 import { countdownState } from "./useCountdown";
 import type { UrgencyLevel } from "./logic";
@@ -13,6 +14,34 @@ import type { UrgencyLevel } from "./logic";
 const { settings, ready, error, reload, saveSettings } = countdownState();
 
 const msg = ref("");
+// 自定义确认对话框（WebView2 下 window.confirm/alert 不可用，见 design.md）
+const confirmBox = ref<{
+  title: string;
+  message: string;
+  confirmText: string;
+  danger: boolean;
+  action: () => void;
+} | null>(null);
+
+function askConfirm(
+  message: string,
+  action: () => void,
+  opts: { title?: string; confirmText?: string; danger?: boolean } = {},
+) {
+  confirmBox.value = {
+    title: opts.title ?? "确认",
+    message,
+    confirmText: opts.confirmText ?? "确定",
+    danger: opts.danger ?? true,
+    action,
+  };
+}
+
+function onConfirm() {
+  const action = confirmBox.value?.action;
+  confirmBox.value = null;
+  action?.();
+}
 const rootEl = ref<HTMLElement | null>(null);
 const win = getCurrentWindow();
 
@@ -68,6 +97,19 @@ async function onExport(kind: ExportKind) {
   }
 }
 
+async function doImport(kind: ExportKind, path: string) {
+  if (kind === "items") {
+    const result = await commands.importItems(path);
+    msg.value = `已导入 ${result.items} 条倒计时`;
+  } else {
+    await commands.importSettings(path);
+    msg.value = "设置已导入";
+  }
+  await reload();
+  await emit("settings-changed", null);
+  error.value = "";
+}
+
 async function onImport(kind: ExportKind) {
   try {
     const path = await open({
@@ -76,23 +118,20 @@ async function onImport(kind: ExportKind) {
     });
     if (!path) return;
     const what = kind === "items" ? "全部倒计时数据" : "全部设置";
-    if (!window.confirm(`导入将覆盖现有${what}，继续？`)) return;
-    if (kind === "items") {
-      const result = await commands.importItems(path);
-      msg.value = `已导入 ${result.items} 条倒计时`;
-    } else {
-      await commands.importSettings(path);
-      msg.value = "设置已导入";
-    }
-    await reload();
-    await emit("settings-changed", null);
-    error.value = "";
+    askConfirm(`导入将覆盖现有${what}。`, () => void doImport(kind, path), {
+      confirmText: "导入",
+    });
   } catch (e) {
     error.value = String(e);
   }
 }
 
 const MAX_LEVELS = 6;
+// 与后端 default_levels 保持一致
+const DEFAULT_LEVELS: UrgencyLevel[] = [
+  { thresholdDays: 7, color: "#a78bfa" },
+  { thresholdDays: 3, color: "#fb923c" },
+];
 
 // 分级编辑：每次修改整表提交，后端负责归一化（去重/排序/颜色回落）
 async function setLevels(next: UrgencyLevel[]) {
@@ -109,8 +148,14 @@ function updateLevel(index: number, patch: Partial<UrgencyLevel>) {
   void setLevels(settings.value.levels.map((l, i) => (i === index ? { ...l, ...patch } : l)));
 }
 
+// 破坏性操作（删除/重置/导入覆盖）必须二次确认（见根目录 design.md）
 function removeLevel(index: number) {
-  void setLevels(settings.value.levels.filter((_, i) => i !== index));
+  const lvl = settings.value.levels[index];
+  askConfirm(
+    `删除该级（${lvl?.thresholdDays} 天内）？删除后不可恢复。`,
+    () => void setLevels(settings.value.levels.filter((_, i) => i !== index)),
+    { confirmText: "删除" },
+  );
 }
 
 function addLevel() {
@@ -118,6 +163,14 @@ function addLevel() {
   if (cur.length >= MAX_LEVELS) return;
   const nextThreshold = cur.length ? Math.max(...cur.map((l) => l.thresholdDays)) + 4 : 7;
   void setLevels([...cur, { thresholdDays: nextThreshold, color: "#a78bfa" }]);
+}
+
+function resetLevels() {
+  askConfirm(
+    "重置将恢复为默认的两级（7 天紫 / 3 天橙），丢弃现有分级。",
+    () => void setLevels(DEFAULT_LEVELS.map((l) => ({ ...l }))),
+    { confirmText: "重置" },
+  );
 }
 
 function onLevelThreshold(index: number, value: number) {
@@ -130,6 +183,8 @@ function onLevelColor(index: number, e: Event) {
 
 const btnCls =
   "shrink-0 rounded border border-slate-600 px-3 py-1 text-sm text-slate-200 hover:bg-slate-700";
+const btnSmCls =
+  "rounded border border-slate-600 px-2 py-0.5 text-xs font-normal text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40";
 </script>
 
 <template>
@@ -138,7 +193,17 @@ const btnCls =
     <dl class="divide-y divide-slate-700">
       <div class="flex items-center justify-between gap-3 py-3">
         <div class="min-w-0">
-          <dt class="text-slate-300">紧急度分级</dt>
+          <dt class="flex items-center gap-2 text-slate-300">
+            紧急度分级
+            <button
+              :class="btnSmCls"
+              :disabled="settings.levels.length >= MAX_LEVELS"
+              @click="addLevel"
+            >
+              ＋ 添加分级
+            </button>
+            <button :class="btnSmCls" @click="resetLevels">重置</button>
+          </dt>
           <dd class="text-sm text-slate-500">
             剩余天数 ≤ 级别天数时按该级颜色显示（降序生效），最多
             {{ MAX_LEVELS }} 级；过期固定红色，清空分级则全部正常色
@@ -166,13 +231,6 @@ const btnCls =
               ✕
             </button>
           </div>
-          <button
-            :class="btnCls"
-            :disabled="settings.levels.length >= MAX_LEVELS"
-            @click="addLevel"
-          >
-            ＋ 添加分级
-          </button>
         </div>
       </div>
 
@@ -209,5 +267,15 @@ const btnCls =
     <p v-if="error" class="mt-2 rounded bg-red-900/50 px-2 py-1 text-xs text-red-200">
       {{ error }}
     </p>
+
+    <ConfirmDialog
+      :open="confirmBox !== null"
+      :title="confirmBox?.title"
+      :message="confirmBox?.message"
+      :confirm-text="confirmBox?.confirmText"
+      :danger="confirmBox?.danger"
+      @confirm="onConfirm"
+      @cancel="confirmBox = null"
+    />
   </div>
 </template>

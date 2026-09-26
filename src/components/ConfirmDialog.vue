@@ -1,0 +1,62 @@
+<script setup lang="ts">
+/**
+ * ConfirmDialog - 通用确认弹窗（替代 window.confirm：WebView2 下原生脚本对话框不可用）。
+ * 标题居中，底部「取消/确定」按钮水平均分。
+ */
+withDefaults(
+  defineProps<{
+    open: boolean;
+    title?: string;
+    message?: string;
+    confirmText?: string;
+    danger?: boolean;
+  }>(),
+  {
+    title: "确认",
+    message: "",
+    confirmText: "确定",
+    danger: false,
+  },
+);
+
+const emit = defineEmits<{
+  (e: "confirm"): void;
+  (e: "cancel"): void;
+}>();
+</script>
+
+<template>
+  <Teleport to="body">
+    <div
+      v-if="open"
+      class="fixed inset-0 z-[110] flex items-center justify-center bg-black/40"
+      @click.self="emit('cancel')"
+    >
+      <div class="w-80 max-w-[90vw] rounded-lg border p-4 shadow-sm border-slate-700 bg-slate-800">
+        <h3 class="text-center text-base font-semibold text-slate-100">
+          {{ title }}
+        </h3>
+        <p v-if="message" class="mt-3 text-center text-sm text-slate-300">
+          {{ message }}
+        </p>
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            class="rounded-lg border py-2 text-sm transition-colors border-slate-600 text-slate-200 hover:bg-slate-700"
+            @click="emit('cancel')"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            class="rounded-lg py-2 text-sm text-white transition-colors"
+            :class="danger ? 'bg-red-600 hover:bg-red-500' : 'bg-slate-600 hover:bg-slate-500'"
+            @click="emit('confirm')"
+          >
+            {{ confirmText }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+</template>
