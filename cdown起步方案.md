@@ -49,7 +49,7 @@
 - 主窗口 label `main`：约 320×420，`decorations: false`，`alwaysOnTop: true`，`skipTaskbar: true`，可缩放（min/max 收窄）。
 - 无边框拖动：标题区放 `data-tauri-drag-region`（需 `core:window:allow-start-dragging` 权限）。
 - 自绘右上角小按钮：隐藏到托盘（`core:window:allow-hide`）。
-- 托盘菜单：显示/隐藏、退出。
+- 托盘菜单：显示/隐藏、设置、退出；「设置」与主面板 ⚙ 按钮都走 `open_settings` 命令（Rust 侧创建/唤起独立设置窗口，label `settings`，原生标题栏 + 置顶，方便对照主面板调样式；失败信息回传前端错误条）。同一段前端按**窗口 label** 分流渲染；设置保存后广播 `settings-changed`，主窗口重拉设置。
 - 一期不做透明背景（避免 macOS private api 分歧），用圆角 + 阴影即可。
 
 ## 5. 数据模型与命令
@@ -91,7 +91,7 @@ cdown/
     bindings.ts                  # 生成物，入库
     app/App.vue
     features/countdown/
-      CountdownTable.vue  EditableRow.vue  SettingsRow.vue
+      CountdownTable.vue  EditableRow.vue  SettingsRow.vue  SettingsPage.vue
       useCountdown.ts  logic.ts  logic.test.ts
   src-tauri/
     tauri.conf.json  capabilities/default.json  icons/

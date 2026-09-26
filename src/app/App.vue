@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { onUnmounted } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import CountdownTable from "@/features/countdown/CountdownTable.vue";
-import SettingsRow from "@/features/countdown/SettingsRow.vue";
+import SettingsPage from "@/features/countdown/SettingsPage.vue";
+import { commands } from "@/bindings";
 import { useCountdown, type ColumnWidths } from "@/features/countdown/useCountdown";
 
 const {
@@ -12,9 +15,26 @@ const {
   editing,
   deleteItem,
   saveSettings: persistSettings,
+  reload,
   startAdd,
   cancelEdit,
 } = useCountdown();
+
+// 设置走独立窗口：同一段前端代码按窗口 label 区分渲染内容
+const isSettingsWindow = getCurrentWindow().label === "settings";
+
+let unlisteners: UnlistenFn[] = [];
+// 设置窗口保存后广播，主窗口重拉设置
+void listen("settings-changed", () => void reload()).then((u) => (unlisteners = [u]));
+onUnmounted(() => unlisteners.forEach((u) => u()));
+
+async function openSettings() {
+  try {
+    await commands.openSettings();
+  } catch (e) {
+    error.value = String(e);
+  }
+}
 
 async function onRemove(id: string) {
   try {
@@ -36,8 +56,9 @@ async function saveSettings(patch: { redThresholdDays?: number; columnWidths?: C
 </script>
 
 <template>
-  <div class="flex h-full select-none flex-col bg-slate-900 text-slate-100">
-    <!-- 标题栏：无边框窗口拖动区 + 添加/隐藏按钮 -->
+  <SettingsPage v-if="isSettingsWindow" />
+  <div v-else class="flex h-full select-none flex-col bg-slate-900 text-slate-100">
+    <!-- 标题栏：无边框窗口拖动区 + 添加/设置/隐藏按钮 -->
     <header class="flex h-8 shrink-0 items-center pl-3" data-tauri-drag-region>
       <span class="text-xs font-semibold tracking-wide text-slate-400" data-tauri-drag-region>
         cdown 倒计时
@@ -52,6 +73,13 @@ async function saveSettings(patch: { redThresholdDays?: number; columnWidths?: C
       </button>
       <button
         class="h-8 rounded px-2.5 text-slate-500 hover:bg-slate-800 hover:text-slate-100"
+        title="设置"
+        @click="openSettings()"
+      >
+        ⚙
+      </button>
+      <button
+        class="h-8 rounded px-2.5 text-slate-500 hover:bg-slate-800 hover:text-slate-100"
         title="隐藏到托盘"
         @click="getCurrentWindow().hide()"
       >
@@ -63,19 +91,12 @@ async function saveSettings(patch: { redThresholdDays?: number; columnWidths?: C
       {{ error }}
     </p>
 
-    <template v-if="ready">
-      <CountdownTable
-        :rows="rows"
-        :widths="settings.column_widths"
-        @remove="onRemove"
-        @resize="saveSettings({ columnWidths: $event })"
-      />
-
-      <SettingsRow
-        :threshold="settings.red_threshold_days"
-        class="shrink-0 border-t border-slate-800 px-2 py-1.5"
-        @change="saveSettings({ redThresholdDays: $event })"
-      />
-    </template>
+    <CountdownTable
+      v-if="ready"
+      :rows="rows"
+      :widths="settings.column_widths"
+      @remove="onRemove"
+      @resize="saveSettings({ columnWidths: $event })"
+    />
   </div>
 </template>

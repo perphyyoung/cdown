@@ -1,7 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "精确权限清单：按前端实际调用的 Tauri API 逐条开放（配合 build.removeUnusedCommands 移除未用命令）。新增前端调用的 Tauri API 时必须同步补权限。托盘的显示/退出由 Rust 侧操作窗口，无需前端权限。",
-  "windows": ["main"],
-  "permissions": ["core:window:allow-start-dragging", "core:window:allow-hide"]
+  "description": "精确权限清单：按前端实际调用的 Tauri API 逐条开放（配合 build.removeUnusedCommands 移除未用命令）。新增前端调用的 Tauri API 时必须同步补权限。设置窗口（settings）由 Rust 命令 open_settings 创建/唤起，共用同一份前端（按窗口 label 分流）。",
+  "windows": ["main", "settings"],
+  "permissions": [
+    "core:window:allow-start-dragging",
+    "core:window:allow-hide",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:event:allow-emit"
+  ]
 }

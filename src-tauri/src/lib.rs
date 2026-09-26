@@ -21,6 +21,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::items::delete_item,
             commands::settings::get_settings,
             commands::settings::set_settings,
+            commands::settings::open_settings,
         ])
 }
 
@@ -93,8 +94,9 @@ pub fn run() {
                 };
 
                 let show = MenuItem::with_id(app, "show", "显示", true, None::<&str>)?;
+                let settings = MenuItem::with_id(app, "settings", "设置", true, None::<&str>)?;
                 let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-                let menu = Menu::with_items(app, &[&show, &quit])?;
+                let menu = Menu::with_items(app, &[&show, &settings, &quit])?;
 
                 TrayIconBuilder::with_id("cdown-tray")
                     .icon(app.default_window_icon().expect("缺少应用图标").clone())
@@ -108,6 +110,24 @@ pub fn run() {
                                 let _ = w.unminimize();
                                 let _ = w.set_focus();
                             }
+                        }
+                        // 设置：唤起主窗口（供对照）并打开独立设置窗口。
+                        // 菜单事件处理器在主线程，build() 必须丢到独立线程，
+                        // 否则 Windows 上死锁（官方文档警告，同 async 命令）。
+                        "settings" => {
+                            if let Some(w) = app.get_webview_window("main") {
+                                let _ = w.show();
+                                let _ = w.unminimize();
+                                let _ = w.set_focus();
+                            }
+                            let settings_app = app.clone();
+                            tauri::async_runtime::spawn(async move {
+                                if let Err(e) =
+                                    crate::commands::settings::open_settings_window(&settings_app)
+                                {
+                                    log::warn!("打开设置窗口失败：{e}");
+                                }
+                            });
                         }
                         "quit" => app.exit(0),
                         _ => {}

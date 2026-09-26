@@ -11,6 +11,7 @@ Tauri 2 倒计时桌面小组件：表格样式列出倒计时项，剩余天数
 ## 命令约定
 
 - 命令一律 **PowerShell 7** 写，串联用 `&&` / `||`。
+- 命令输出需要截断时**一律 `tail -100`**，不得用其它行数。
 - 质量门唯一入口：`pnpm check` = format → build:rs → gen:bindings → typecheck → build。
 - 测试：`pnpm test:ui`（vitest，纯逻辑）+ `pnpm test:rs`（cargo test）。
 - `CARGO_TARGET_DIR` 指向共享目录 `D:\cargo-shared-target`（机器级环境变量），

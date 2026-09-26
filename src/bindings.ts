@@ -11,6 +11,12 @@ export const commands = {
 	deleteItem: (id: string) => __TAURI_INVOKE<null>("delete_item", { id }),
 	getSettings: () => __TAURI_INVOKE<Settings>("get_settings"),
 	setSettings: (settings: Settings) => __TAURI_INVOKE<Settings>("set_settings", { settings }),
+	/**
+	 *  打开设置窗口（前端 ⚙ 按钮调用）。
+	 *  必须是 async 命令：WebviewWindowBuilder::build() 在 Windows 上于同步命令中
+	 *  会死锁（官方文档明确警告，命令/事件处理器里要改用 async 或独立线程）。
+	 */
+	openSettings: () => __TAURI_INVOKE<null>("open_settings"),
 };
 
 /* Types */
