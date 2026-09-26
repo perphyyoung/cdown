@@ -38,7 +38,7 @@ onUnmounted(() => document.removeEventListener("pointerdown", onDocPointerdown, 
   >
     <span
       class="text-xs font-medium"
-      :class="preview.state === 'expired' ? 'text-red-400/70' : 'text-slate-400'"
+      :class="preview.state === 'expired' ? 'text-red-400 line-through' : 'text-slate-400'"
       :style="preview.state === 'level' && preview.color ? { color: preview.color } : {}"
     >
       {{ Number.isNaN(days) ? "—" : formatDays(days) }}

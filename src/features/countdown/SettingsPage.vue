@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { emit } from "@tauri-apps/api/event";
@@ -130,8 +130,11 @@ const MAX_LEVELS = 6;
 // 与后端 default_levels 保持一致
 const DEFAULT_LEVELS: UrgencyLevel[] = [
   { thresholdDays: 7, color: "#a78bfa" },
-  { thresholdDays: 3, color: "#fb923c" },
+  { thresholdDays: 3, color: "#facc15" },
+  { thresholdDays: 1, color: "#fb923c" },
 ];
+// 展示升序（天数小的最紧急，放最上面）；settings.levels 为降序
+const levelsAsc = computed(() => [...settings.value.levels].reverse());
 
 // 分级编辑：每次修改整表提交，后端负责归一化（去重/排序/颜色回落）
 async function setLevels(next: UrgencyLevel[]) {
@@ -144,12 +147,19 @@ async function setLevels(next: UrgencyLevel[]) {
   }
 }
 
-function updateLevel(index: number, patch: Partial<UrgencyLevel>) {
+// 升序展示索引 → 降序存储索引
+function toStoreIndex(displayIndex: number): number {
+  return settings.value.levels.length - 1 - displayIndex;
+}
+
+function updateLevel(displayIndex: number, patch: Partial<UrgencyLevel>) {
+  const index = toStoreIndex(displayIndex);
   void setLevels(settings.value.levels.map((l, i) => (i === index ? { ...l, ...patch } : l)));
 }
 
 // 破坏性操作（删除/重置/导入覆盖）必须二次确认（见根目录 design.md）
-function removeLevel(index: number) {
+function removeLevel(displayIndex: number) {
+  const index = toStoreIndex(displayIndex);
   const lvl = settings.value.levels[index];
   askConfirm(
     `删除该级（${lvl?.thresholdDays} 天内）？删除后不可恢复。`,
@@ -167,7 +177,7 @@ function addLevel() {
 
 function resetLevels() {
   askConfirm(
-    "重置将恢复为默认的两级（7 天紫 / 3 天橙），丢弃现有分级。",
+    "重置将恢复为默认的三级（7 天紫 / 3 天黄 / 1 天橙），丢弃现有分级。",
     () => void setLevels(DEFAULT_LEVELS.map((l) => ({ ...l }))),
     { confirmText: "重置" },
   );
@@ -205,12 +215,16 @@ const btnSmCls =
             <button :class="btnSmCls" @click="resetLevels">重置</button>
           </dt>
           <dd class="text-sm text-slate-500">
-            剩余天数 ≤ 级别天数时按该级颜色显示（降序生效），最多
+            剩余天数 ≤ 级别天数时按该级颜色显示（天数小的优先，最紧急在最上面），最多
             {{ MAX_LEVELS }} 级；过期固定红色，清空分级则全部正常色
           </dd>
         </div>
         <div class="flex shrink-0 flex-col items-end gap-1.5">
-          <div v-for="(lvl, i) in settings.levels" :key="i" class="flex items-center gap-1.5">
+          <div
+            v-for="(lvl, i) in levelsAsc"
+            :key="lvl.thresholdDays"
+            class="flex items-center gap-1.5"
+          >
             <SettingsRow
               :model-value="lvl.thresholdDays"
               :max="365"

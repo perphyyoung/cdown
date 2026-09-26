@@ -163,7 +163,7 @@ function confirmRemove() {
           :style="rowStyle(row)"
           :class="
             row.state === 'expired'
-              ? 'text-red-400/70'
+              ? 'text-red-400 line-through'
               : row.state === 'level'
                 ? ''
                 : 'text-slate-200'

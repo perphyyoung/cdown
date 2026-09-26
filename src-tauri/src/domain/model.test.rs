@@ -8,12 +8,15 @@ fn level(days: u32, color: &str) -> UrgencyLevel {
 }
 
 #[test]
-fn settings_default_is_two_levels() {
+fn settings_default_is_three_levels() {
     let s = Settings::default();
-    assert_eq!(s.levels.len(), 2);
+    assert_eq!(s.levels.len(), 3);
     assert_eq!(s.levels[0].threshold_days, 7);
     assert_eq!(s.levels[0].color, "#a78bfa");
     assert_eq!(s.levels[1].threshold_days, 3);
+    assert_eq!(s.levels[1].color, "#facc15");
+    assert_eq!(s.levels[2].threshold_days, 1);
+    assert_eq!(s.levels[2].color, "#fb923c");
     // 反序列化缺字段时也应回落到默认值（旧版/手改的 cdown.json 兼容）
     let s: Settings = serde_json::from_str("{}").unwrap();
     assert_eq!(s.levels, Settings::default().levels);

@@ -60,7 +60,8 @@ const items = ref<CountdownItem[]>([]);
 const settings = ref<SettingsView>({
   levels: [
     { thresholdDays: 7, color: "#a78bfa" },
-    { thresholdDays: 3, color: "#fb923c" },
+    { thresholdDays: 3, color: "#facc15" },
+    { thresholdDays: 1, color: "#fb923c" },
   ],
   column_widths: { ...DEFAULT_WIDTHS },
 });
