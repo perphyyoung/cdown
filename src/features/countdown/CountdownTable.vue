@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from "vue";
+import { computed, nextTick, reactive, ref, watch } from "vue";
 import { formatDays } from "./logic";
-import type { ColumnWidths, CountdownRow } from "./useCountdown";
+import { countdownState, type ColumnWidths, type CountdownRow } from "./useCountdown";
 import type { CountdownItem } from "@/bindings";
+import EditableRow from "./EditableRow.vue";
 
 const props = defineProps<{ rows: CountdownRow[]; widths: ColumnWidths }>();
 const emit = defineEmits<{
-  edit: [item: CountdownItem];
   remove: [id: string];
   resize: [widths: ColumnWidths];
 }>();
@@ -37,9 +37,24 @@ function onUp() {
   emit("resize", { ...local });
 }
 
+// 列顺序：剩余、名称、目标日期、备注
 const gridStyle = computed(() => ({
-  gridTemplateColumns: `${local.name}px ${local.target}px ${local.remaining}px ${local.note}px`,
+  gridTemplateColumns: `${local.remaining}px ${local.name}px ${local.target}px ${local.note}px`,
 }));
+
+const { editing, startEdit } = countdownState();
+
+const mainEl = ref<HTMLElement | null>(null);
+// 进入编辑时聚焦名称输入框
+watch(editing, async (v) => {
+  if (!v) return;
+  await nextTick();
+  mainEl.value?.querySelector<HTMLInputElement>("input[data-focus-first]")?.focus();
+});
+
+function isEditing(id: string) {
+  return editing.value?.mode === "edit" && editing.value.id === id;
+}
 
 // 行右键菜单：全应用唯一的右键入口（默认菜单已在 main.ts 全局禁用）
 const menu = ref<{ x: number; y: number; item: CountdownItem } | null>(null);
@@ -56,15 +71,34 @@ function openMenu(e: MouseEvent, item: CountdownItem) {
 function closeMenu() {
   menu.value = null;
 }
+function menuEdit() {
+  if (menu.value) startEdit(menu.value.item);
+  closeMenu();
+}
+function menuRemove() {
+  if (menu.value) emit("remove", menu.value.item.id);
+  closeMenu();
+}
 </script>
 
 <template>
-  <main class="min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-auto px-2 pb-1">
+  <main ref="mainEl" class="min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-auto px-2 pb-1">
     <div class="min-w-max">
       <div
         class="grid items-center gap-x-2 border-b border-slate-800 px-1 py-1 text-xs text-slate-500"
         :style="gridStyle"
       >
+        <span class="relative text-right">
+          剩余
+          <span
+            class="absolute -right-1 top-0 h-full w-2 cursor-col-resize hover:bg-slate-600/60"
+            title="拖拽调整列宽"
+            @pointerdown="onDown('remaining', $event)"
+            @pointermove="onMove"
+            @pointerup="onUp"
+            @pointercancel="onUp"
+          ></span>
+        </span>
         <span class="relative">
           名称
           <span
@@ -87,17 +121,6 @@ function closeMenu() {
             @pointercancel="onUp"
           ></span>
         </span>
-        <span class="relative text-right">
-          剩余
-          <span
-            class="absolute -right-1 top-0 h-full w-2 cursor-col-resize hover:bg-slate-600/60"
-            title="拖拽调整列宽"
-            @pointerdown="onDown('remaining', $event)"
-            @pointermove="onMove"
-            @pointerup="onUp"
-            @pointercancel="onUp"
-          ></span>
-        </span>
         <span class="relative">
           备注
           <span
@@ -110,30 +133,37 @@ function closeMenu() {
           ></span>
         </span>
       </div>
-      <div v-if="rows.length === 0" class="py-8 text-center text-xs text-slate-500">
-        暂无倒计时，在下方添加
-      </div>
       <div
-        v-for="row in rows"
-        :key="row.item.id"
-        class="group grid items-center gap-x-2 rounded px-1 py-1.5 hover:bg-slate-800/60"
-        :style="gridStyle"
-        :class="
-          row.state === 'expired'
-            ? 'text-red-400/70'
-            : row.state === 'soon'
-              ? 'text-red-400'
-              : 'text-slate-200'
-        "
-        @contextmenu.prevent="openMenu($event, row.item)"
+        v-if="rows.length === 0 && editing?.mode !== 'add'"
+        class="py-8 text-center text-xs text-slate-500"
       >
-        <span class="truncate text-sm" :title="row.item.title">{{ row.item.title }}</span>
-        <span class="text-right text-xs text-slate-400">{{ row.item.target_date }}</span>
-        <span class="text-right text-xs font-medium">{{ formatDays(row.days) }}</span>
-        <span class="truncate text-xs text-slate-500" :title="row.item.note ?? ''">
-          {{ row.item.note }}
-        </span>
+        暂无倒计时，点右上角 ＋ 添加
       </div>
+      <template v-for="row in rows" :key="row.item.id">
+        <EditableRow v-if="isEditing(row.item.id)" :style="gridStyle" />
+        <div
+          v-else
+          class="grid items-center gap-x-2 rounded px-1 py-1.5 hover:bg-slate-800/60"
+          :style="gridStyle"
+          :class="
+            row.state === 'expired'
+              ? 'text-red-400/70'
+              : row.state === 'soon'
+                ? 'text-red-400'
+                : 'text-slate-200'
+          "
+          @contextmenu.prevent="openMenu($event, row.item)"
+        >
+          <span class="text-right text-xs font-medium">{{ formatDays(row.days) }}</span>
+          <span class="truncate text-sm" :title="row.item.title">{{ row.item.title }}</span>
+          <span class="text-right text-xs text-slate-400">{{ row.item.target_date }}</span>
+          <span class="truncate text-xs text-slate-500" :title="row.item.note ?? ''">
+            {{ row.item.note }}
+          </span>
+        </div>
+      </template>
+      <!-- 新增草稿行：固定显示在最后，保存后随列表按剩余重排 -->
+      <EditableRow v-if="editing?.mode === 'add'" :style="gridStyle" />
     </div>
 
     <template v-if="menu">
@@ -145,19 +175,13 @@ function closeMenu() {
       >
         <button
           class="block w-full px-3 py-1.5 text-left text-slate-200 hover:bg-slate-700"
-          @click="
-            emit('edit', menu.item);
-            closeMenu();
-          "
+          @click="menuEdit()"
         >
           编辑
         </button>
         <button
           class="block w-full px-3 py-1.5 text-left text-red-300 hover:bg-slate-700"
-          @click="
-            emit('remove', menu.item.id);
-            closeMenu();
-          "
+          @click="menuRemove()"
         >
           删除
         </button>

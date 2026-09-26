@@ -22,6 +22,9 @@ export interface CountdownRow {
   state: RowState;
 }
 
+/** 行内编辑目标：add = 新增草稿行（显示在最后）；edit = 修改既有行 */
+export type EditTarget = { mode: "add" } | { mode: "edit"; id: string };
+
 interface SettingsView {
   red_threshold_days: number;
   column_widths: ColumnWidths;
@@ -43,7 +46,7 @@ function normalizeSettings(cfg: Settings): SettingsView {
   };
 }
 
-// 模块级单例状态（App 只有一处调用）
+// 模块级单例状态：App 挂生命周期，子组件经 countdownState() 共享同一份
 const items = ref<CountdownItem[]>([]);
 const settings = ref<SettingsView>({
   red_threshold_days: 3,
@@ -52,6 +55,9 @@ const settings = ref<SettingsView>({
 const today = ref(todayStr());
 const ready = ref(false);
 const error = ref("");
+
+const editing = ref<EditTarget | null>(null);
+const draft = ref<FormValue>({ title: "", targetDate: "", note: null });
 
 let timer: number | null = null;
 
@@ -64,22 +70,107 @@ function onVisibility() {
   if (!document.hidden) tick();
 }
 
-export function useCountdown() {
-  async function reload() {
-    try {
-      const [list, cfg] = await Promise.all([commands.listItems(), commands.getSettings()]);
-      items.value = list;
-      settings.value = normalizeSettings(cfg);
-      error.value = "";
-    } catch (e) {
-      error.value = String(e);
-    } finally {
-      ready.value = true;
-    }
+async function reload() {
+  try {
+    const [list, cfg] = await Promise.all([commands.listItems(), commands.getSettings()]);
+    items.value = list;
+    settings.value = normalizeSettings(cfg);
+    error.value = "";
+  } catch (e) {
+    error.value = String(e);
+  } finally {
+    ready.value = true;
   }
+}
 
+async function addItem(value: FormValue) {
+  await commands.addItem(value.title, value.targetDate, value.note);
+  await reload();
+}
+
+async function updateItem(id: string, value: FormValue) {
+  await commands.updateItem(id, value.title, value.targetDate, value.note);
+  await reload();
+}
+
+async function deleteItem(id: string) {
+  await commands.deleteItem(id);
+  await reload();
+}
+
+async function saveSettings(patch: { redThresholdDays?: number; columnWidths?: ColumnWidths }) {
+  const next: Settings = {
+    red_threshold_days: patch.redThresholdDays ?? settings.value.red_threshold_days,
+    column_widths: patch.columnWidths ?? settings.value.column_widths,
+  };
+  settings.value = normalizeSettings(await commands.setSettings(next));
+}
+
+function startAdd() {
+  draft.value = { title: "", targetDate: "", note: null };
+  editing.value = { mode: "add" };
+}
+
+function startEdit(item: CountdownItem) {
+  draft.value = { title: item.title, targetDate: item.target_date, note: item.note };
+  editing.value = { mode: "edit", id: item.id };
+}
+
+function cancelEdit() {
+  editing.value = null;
+}
+
+async function commitEdit() {
+  const target = editing.value;
+  if (!target) return;
+  const value = draft.value;
+  if (value.title.trim() === "" || !/^\d{4}-\d{2}-\d{2}$/.test(value.targetDate)) {
+    error.value = "名称不能为空，目标日期需为 YYYY-MM-DD";
+    return;
+  }
+  try {
+    if (target.mode === "add") await addItem(value);
+    else await updateItem(target.id, value);
+    editing.value = null;
+  } catch (e) {
+    error.value = String(e);
+  }
+}
+
+export function countdownState() {
+  return {
+    items,
+    settings,
+    today,
+    ready,
+    error,
+    editing,
+    draft,
+    rows: computed<CountdownRow[]>(() =>
+      items.value
+        .map((item) => {
+          const days = daysUntil(item.target_date, today.value);
+          return { item, days, state: rowState(days, settings.value.red_threshold_days) };
+        })
+        .sort((a, b) => a.days - b.days),
+    ),
+    reload,
+    addItem,
+    updateItem,
+    deleteItem,
+    saveSettings,
+    startAdd,
+    startEdit,
+    cancelEdit,
+    commitEdit,
+  };
+}
+
+/** 仅 App 调用：注册定时 tick 与可见性监听的生命周期 */
+export function useCountdown() {
+  const state = countdownState();
   onMounted(() => {
-    void reload();
+    void state.reload();
     tick();
     // 精确到天：天界在午夜，每分钟重算一次已远超需要（纯字符串日期差，开销可忽略）；
     // 页面隐藏时暂停，恢复可见时由 visibilitychange 立即重算。
@@ -88,56 +179,10 @@ export function useCountdown() {
     }, 60_000);
     document.addEventListener("visibilitychange", onVisibility);
   });
-
   onUnmounted(() => {
     if (timer !== null) window.clearInterval(timer);
     timer = null;
     document.removeEventListener("visibilitychange", onVisibility);
   });
-
-  const rows = computed<CountdownRow[]>(() =>
-    items.value
-      .map((item) => {
-        const days = daysUntil(item.target_date, today.value);
-        return { item, days, state: rowState(days, settings.value.red_threshold_days) };
-      })
-      .sort((a, b) => a.days - b.days),
-  );
-
-  async function addItem(value: FormValue) {
-    await commands.addItem(value.title, value.targetDate, value.note);
-    await reload();
-  }
-
-  async function updateItem(id: string, value: FormValue) {
-    await commands.updateItem(id, value.title, value.targetDate, value.note);
-    await reload();
-  }
-
-  async function deleteItem(id: string) {
-    await commands.deleteItem(id);
-    await reload();
-  }
-
-  async function saveSettings(patch: { redThresholdDays?: number; columnWidths?: ColumnWidths }) {
-    const next: Settings = {
-      red_threshold_days: patch.redThresholdDays ?? settings.value.red_threshold_days,
-      column_widths: patch.columnWidths ?? settings.value.column_widths,
-    };
-    settings.value = normalizeSettings(await commands.setSettings(next));
-  }
-
-  return {
-    items,
-    settings,
-    today,
-    rows,
-    ready,
-    error,
-    reload,
-    addItem,
-    updateItem,
-    deleteItem,
-    saveSettings,
-  };
+  return state;
 }

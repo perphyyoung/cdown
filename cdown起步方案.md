@@ -91,7 +91,7 @@ cdown/
     bindings.ts                  # 生成物，入库
     app/App.vue
     features/countdown/
-      CountdownTable.vue  ItemForm.vue  SettingsRow.vue
+      CountdownTable.vue  EditableRow.vue  SettingsRow.vue
       useCountdown.ts  logic.ts  logic.test.ts
   src-tauri/
     tauri.conf.json  capabilities/default.json  icons/
