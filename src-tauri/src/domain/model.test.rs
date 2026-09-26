@@ -1,4 +1,4 @@
-use super::{CountdownItem, Settings};
+use super::{ColumnWidths, CountdownItem, Settings};
 
 #[test]
 fn settings_default_is_three_days() {
@@ -6,6 +6,29 @@ fn settings_default_is_three_days() {
     // 反序列化缺字段时也应回落到默认值（旧版/手改的 cdown.json 兼容）
     let s: Settings = serde_json::from_str("{}").unwrap();
     assert_eq!(s.red_threshold_days, 3);
+}
+
+#[test]
+fn column_widths_fill_defaults_when_missing() {
+    // 旧版 settings 只有阈值字段，column_widths 缺失时整体回落默认值
+    let s: Settings = serde_json::from_str("{\"red_threshold_days\":5}").unwrap();
+    assert_eq!(s.red_threshold_days, 5);
+    assert_eq!(s.column_widths, ColumnWidths::default());
+    assert!(ColumnWidths::default().name > 0);
+}
+
+#[test]
+fn column_widths_sanitized_clamps() {
+    let w = ColumnWidths {
+        name: 10,
+        target: 100,
+        remaining: 1000,
+        note: 100,
+    }
+    .sanitized();
+    assert_eq!(w.name, 24);
+    assert_eq!(w.remaining, 400);
+    assert_eq!(w.target, 100);
 }
 
 #[test]

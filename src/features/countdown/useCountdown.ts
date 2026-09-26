@@ -1,5 +1,5 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import { commands, type CountdownItem } from "@/bindings";
+import { commands, type CountdownItem, type Settings } from "@/bindings";
 import { daysUntil, rowState, todayStr, type RowState } from "./logic";
 
 export interface FormValue {
@@ -8,16 +8,47 @@ export interface FormValue {
   note: string | null;
 }
 
+/** 表格四列宽度（px），可拖拽调整并持久化 */
+export interface ColumnWidths {
+  name: number;
+  target: number;
+  remaining: number;
+  note: number;
+}
+
 export interface CountdownRow {
   item: CountdownItem;
   days: number;
   state: RowState;
 }
 
+interface SettingsView {
+  red_threshold_days: number;
+  column_widths: ColumnWidths;
+}
+
+// bindings 里字段因 Rust 侧 serde(default) 导出为可选，读取前先归一化
+const DEFAULT_WIDTHS: ColumnWidths = { name: 92, target: 70, remaining: 52, note: 50 };
+
+function normalizeSettings(cfg: Settings): SettingsView {
+  const w = cfg.column_widths ?? {};
+  return {
+    red_threshold_days: cfg.red_threshold_days ?? 3,
+    column_widths: {
+      name: w.name ?? DEFAULT_WIDTHS.name,
+      target: w.target ?? DEFAULT_WIDTHS.target,
+      remaining: w.remaining ?? DEFAULT_WIDTHS.remaining,
+      note: w.note ?? DEFAULT_WIDTHS.note,
+    },
+  };
+}
+
 // 模块级单例状态（App 只有一处调用）
 const items = ref<CountdownItem[]>([]);
-// bindings 里 red_threshold_days 因 Rust 侧 serde(default) 导出为可选，读取前先归一化
-const settings = ref<{ red_threshold_days: number }>({ red_threshold_days: 3 });
+const settings = ref<SettingsView>({
+  red_threshold_days: 3,
+  column_widths: { ...DEFAULT_WIDTHS },
+});
 const today = ref(todayStr());
 const ready = ref(false);
 const error = ref("");
@@ -38,7 +69,7 @@ export function useCountdown() {
     try {
       const [list, cfg] = await Promise.all([commands.listItems(), commands.getSettings()]);
       items.value = list;
-      settings.value = { red_threshold_days: cfg.red_threshold_days ?? 3 };
+      settings.value = normalizeSettings(cfg);
       error.value = "";
     } catch (e) {
       error.value = String(e);
@@ -88,9 +119,12 @@ export function useCountdown() {
     await reload();
   }
 
-  async function setThreshold(days: number) {
-    const cfg = await commands.setSettings(days);
-    settings.value = { red_threshold_days: cfg.red_threshold_days ?? days };
+  async function saveSettings(patch: { redThresholdDays?: number; columnWidths?: ColumnWidths }) {
+    const next: Settings = {
+      red_threshold_days: patch.redThresholdDays ?? settings.value.red_threshold_days,
+      column_widths: patch.columnWidths ?? settings.value.column_widths,
+    };
+    settings.value = normalizeSettings(await commands.setSettings(next));
   }
 
   return {
@@ -104,6 +138,6 @@ export function useCountdown() {
     addItem,
     updateItem,
     deleteItem,
-    setThreshold,
+    saveSettings,
   };
 }

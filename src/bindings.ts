@@ -10,10 +10,18 @@ export const commands = {
 	updateItem: (id: string, title: string, targetDate: string, note: string | null) => __TAURI_INVOKE<null>("update_item", { id, title, targetDate, note }),
 	deleteItem: (id: string) => __TAURI_INVOKE<null>("delete_item", { id }),
 	getSettings: () => __TAURI_INVOKE<Settings>("get_settings"),
-	setSettings: (redThresholdDays: number) => __TAURI_INVOKE<Settings>("set_settings", { redThresholdDays }),
+	setSettings: (settings: Settings) => __TAURI_INVOKE<Settings>("set_settings", { settings }),
 };
 
 /* Types */
+export type ColumnWidths = {
+	/**  各列宽度（px），可拖拽调整；默认值适配 320px 初始窗口，clamp 范围见 sanitized() */
+	name?: number,
+	target?: number,
+	remaining?: number,
+	note?: number,
+};
+
 export type CountdownItem = {
 	id: string,
 	title: string,
@@ -27,5 +35,7 @@ export type CountdownItem = {
 export type Settings = {
 	/**  临近阈值（天）：剩余天数 ≤ 该值时前端标红；默认 3 */
 	red_threshold_days?: number,
+	/**  表格四列宽度（px） */
+	column_widths?: ColumnWidths,
 };
 

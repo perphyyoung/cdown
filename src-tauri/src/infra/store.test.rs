@@ -1,5 +1,5 @@
 use super::{Store, StoreData, StoreError};
-use crate::domain::model::{CountdownItem, Settings};
+use crate::domain::model::{ColumnWidths, CountdownItem, Settings};
 use std::fs;
 
 fn temp_store(tag: &str) -> Store {
@@ -64,6 +64,7 @@ fn save_then_reload_keeps_settings() {
         .mutate(|d: &mut StoreData| -> Result<(), StoreError> {
             d.settings = Settings {
                 red_threshold_days: 7,
+                column_widths: ColumnWidths::default(),
             };
             Ok(())
         })

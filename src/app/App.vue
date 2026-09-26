@@ -4,11 +4,19 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import CountdownTable from "@/features/countdown/CountdownTable.vue";
 import ItemForm from "@/features/countdown/ItemForm.vue";
 import SettingsRow from "@/features/countdown/SettingsRow.vue";
-import { useCountdown, type FormValue } from "@/features/countdown/useCountdown";
+import { useCountdown, type ColumnWidths, type FormValue } from "@/features/countdown/useCountdown";
 import type { CountdownItem } from "@/bindings";
 
-const { rows, settings, ready, error, addItem, updateItem, deleteItem, setThreshold } =
-  useCountdown();
+const {
+  rows,
+  settings,
+  ready,
+  error,
+  addItem,
+  updateItem,
+  deleteItem,
+  saveSettings: persistSettings,
+} = useCountdown();
 
 const editing = ref<CountdownItem | null>(null);
 
@@ -22,18 +30,18 @@ async function onSubmit(value: FormValue) {
   }
 }
 
-async function onThreshold(days: number) {
+async function onRemove(id: string) {
   try {
-    await setThreshold(days);
+    await deleteItem(id);
+    if (editing.value?.id === id) editing.value = null;
   } catch (e) {
     error.value = String(e);
   }
 }
 
-async function onRemove(id: string) {
+async function saveSettings(patch: { redThresholdDays?: number; columnWidths?: ColumnWidths }) {
   try {
-    await deleteItem(id);
-    if (editing.value?.id === id) editing.value = null;
+    await persistSettings(patch);
   } catch (e) {
     error.value = String(e);
   }
@@ -62,7 +70,13 @@ async function onRemove(id: string) {
     </p>
 
     <template v-if="ready">
-      <CountdownTable :rows="rows" @edit="editing = $event" @remove="onRemove" />
+      <CountdownTable
+        :rows="rows"
+        :widths="settings.column_widths"
+        @edit="editing = $event"
+        @remove="onRemove"
+        @resize="saveSettings({ columnWidths: $event })"
+      />
 
       <ItemForm
         :editing="editing"
@@ -74,7 +88,7 @@ async function onRemove(id: string) {
       <SettingsRow
         :threshold="settings.red_threshold_days"
         class="shrink-0 border-t border-slate-800 px-2 py-1.5"
-        @change="onThreshold"
+        @change="saveSettings({ redThresholdDays: $event })"
       />
     </template>
   </div>

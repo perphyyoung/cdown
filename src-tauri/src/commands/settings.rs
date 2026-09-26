@@ -1,4 +1,4 @@
-//! 设置命令：临近变红阈值（天）。
+//! 设置命令：临近变红阈值（天）与表格列宽。
 
 use tauri::State;
 
@@ -14,14 +14,14 @@ pub fn get_settings(store: State<'_, Store>) -> Result<Settings, CommandError> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn set_settings(
-    store: State<'_, Store>,
-    red_threshold_days: u32,
-) -> Result<Settings, CommandError> {
-    if red_threshold_days > 365 {
+pub fn set_settings(store: State<'_, Store>, settings: Settings) -> Result<Settings, CommandError> {
+    let settings = Settings {
+        red_threshold_days: settings.red_threshold_days,
+        column_widths: settings.column_widths.sanitized(),
+    };
+    if settings.red_threshold_days > 365 {
         return Err(CommandError::Invalid("阈值不能超过 365 天".into()));
     }
-    let settings = Settings { red_threshold_days };
     store.mutate(|d: &mut StoreData| -> Result<(), CommandError> {
         d.settings = settings.clone();
         Ok(())
