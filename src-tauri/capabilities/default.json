@@ -8,6 +8,8 @@
     "core:window:allow-hide",
     "core:event:allow-listen",
     "core:event:allow-unlisten",
-    "core:event:allow-emit"
+    "core:event:allow-emit",
+    "dialog:allow-open",
+    "dialog:allow-save"
   ]
 }

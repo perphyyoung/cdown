@@ -32,7 +32,7 @@
 
 裁掉：
 
-- `rusqlite` → JSON 文件；`vue-router`、`@tauri-apps/plugin-dialog` → 无此需求
+- `rusqlite` → JSON 文件；`vue-router` → 无此需求（`plugin-dialog` 一期为导出/导入引入，见下）
 - asset protocol（`protocol-asset` 特性）→ 无本地图片加载，CSP 相应简化
 - `tauri-plugin-global-shortcut` → 一期不做（二期可加热键显示/隐藏）
 - 自研 `infra/logging.rs` + 配置文件分级 → 一期仅 `tauri-plugin-log`（debug 构建终端输出），应用日志量小
@@ -41,6 +41,7 @@
 新增：
 
 - `tauri-plugin-single-instance`（最先注册；小组件必须防多开）
+- `tauri-plugin-dialog` + `@tauri-apps/plugin-dialog`（设置页全量导出/导入的保存/选文件对话框）
 - `tauri` 的 `tray-icon` 特性（关到托盘、右键退出/唤起；小组件没有任务栏图标，托盘是唯一出口）
 - 二期候选：`tauri-plugin-autostart`（开机自启，小组件类应用大概率需要）
 

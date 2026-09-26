@@ -22,6 +22,8 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::settings::get_settings,
             commands::settings::set_settings,
             commands::settings::open_settings,
+            commands::data::export_data,
+            commands::data::import_data,
         ])
 }
 
@@ -71,6 +73,9 @@ pub fn run() {
             let config_dir = app.path().app_config_dir()?;
             std::fs::create_dir_all(&config_dir)?;
             app.manage(infra::store::Store::new(config_dir.join("cdown.json")));
+
+            // 原生文件对话框（设置页的导出/导入选路径用）
+            app.handle().plugin(tauri_plugin_dialog::init())?;
 
             // 单例：二次启动不出新实例，唤起已有实例（可能正藏在托盘）。
             // 官方要求该插件最先注册。
