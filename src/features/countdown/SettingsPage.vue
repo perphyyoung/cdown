@@ -131,7 +131,7 @@ const MAX_LEVELS = 6;
 const DEFAULT_LEVELS: UrgencyLevel[] = [
   { thresholdDays: 7, color: "#a78bfa" },
   { thresholdDays: 3, color: "#facc15" },
-  { thresholdDays: 1, color: "#fb923c" },
+  { thresholdDays: 0, color: "#fb923c" },
 ];
 // 展示升序（天数小的最紧急，放最上面）；settings.levels 为降序
 const levelsAsc = computed(() => [...settings.value.levels].reverse());
@@ -177,7 +177,7 @@ function addLevel() {
 
 function resetLevels() {
   askConfirm(
-    "重置将恢复为默认的三级（7 天紫 / 3 天黄 / 1 天橙），丢弃现有分级。",
+    "重置将恢复为默认的三级（7 天紫 / 3 天黄 / 0 天橙），丢弃现有分级。",
     () => void setLevels(DEFAULT_LEVELS.map((l) => ({ ...l }))),
     { confirmText: "重置" },
   );

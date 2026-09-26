@@ -70,8 +70,8 @@ fn default_levels() -> Vec<UrgencyLevel> {
             color: "#facc15".into(), // 黄 yellow-400
         },
         UrgencyLevel {
-            threshold_days: 1,
-            color: "#fb923c".into(), // 橙 orange-400
+            threshold_days: 0,
+            color: "#fb923c".into(), // 橙 orange-400，仅命中当天
         },
     ]
 }
