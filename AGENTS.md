@@ -4,6 +4,10 @@ Tauri 2 倒计时桌面小组件：表格样式列出倒计时项，剩余天数
 时间精度到天（不做秒级计时），资源占用优先。方案与取舍见 `cdown起步方案.md`，
 工程约定来自 `D:\py-code\paim\tauri2项目起步指南.md`（建议先读速查表）。
 
+## 项目规则
+
+- 修改代码后，**先**执行 `pnpm check` 验证（format → build:rs → gen:bindings → typecheck → build），通过后再按需跑 `pnpm test`（全部单元测试，含前后端）/ `sentrux check .` / `pnpm e2e`；验证通过才输出**单独一行**的简要的一句话 git commit 信息，方便复制。不要跳过 `pnpm check` 直接跑其它命令
+
 ## 命令约定
 
 - 命令一律 **PowerShell 7** 写，串联用 `&&` / `||`。
