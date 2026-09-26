@@ -1,4 +1,4 @@
-//! 全量导出/导入：倒计时项 + 设置 打包为单个 JSON 文件，供备份与迁移。
+//! 倒计时与设置的独立导出/导入：各成一个 JSON 文件，互不合并。
 
 use std::fs;
 
@@ -11,46 +11,54 @@ use crate::infra::store::{Store, StoreData};
 
 const EXPORT_FORMAT: &str = "cdown-export";
 const EXPORT_VERSION: u32 = 1;
+const KIND_ITEMS: &str = "items";
+const KIND_SETTINGS: &str = "settings";
+
+/// 导出文件内的时间戳，精确到秒
+fn now_stamp() -> String {
+    chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
+}
 
 #[derive(Debug, Serialize, specta::Type)]
-struct ExportPayload<'a> {
+struct ItemsExport<'a> {
     app: &'static str,
     version: u32,
+    kind: &'static str,
     exported_at: String,
     items: &'a [CountdownItem],
+}
+
+#[derive(Debug, Serialize, specta::Type)]
+struct SettingsExport<'a> {
+    app: &'static str,
+    version: u32,
+    kind: &'static str,
+    exported_at: String,
     settings: &'a Settings,
 }
 
+/// 导入文件统一外壳：按 kind 区分内容，kind 不匹配即报错。
 #[derive(Debug, Deserialize)]
-struct ImportPayload {
+struct ImportEnvelope {
     #[serde(default)]
-    items: Vec<CountdownItem>,
+    kind: String,
+    #[serde(default)]
+    items: Option<Vec<CountdownItem>>,
     #[serde(default)]
     settings: Option<Settings>,
 }
 
 #[derive(Debug, Serialize, specta::Type)]
-pub struct ImportResult {
+pub struct ImportItemsResult {
     /// 导入的倒计时条数
     pub items: usize,
 }
 
-/// 全量导出：当前全部倒计时项与设置写入 path（JSON，pretty）。
-#[tauri::command]
-#[specta::specta]
-pub fn export_data(store: State<'_, Store>, path: String) -> Result<(), CommandError> {
-    let data = store.read()?;
-    let payload = ExportPayload {
-        app: EXPORT_FORMAT,
-        version: EXPORT_VERSION,
-        exported_at: chrono::Local::now().to_rfc3339(),
-        items: &data.items,
-        settings: &data.settings,
-    };
-    let json =
-        serde_json::to_string_pretty(&payload).map_err(|e| CommandError::Store(e.to_string()))?;
-    fs::write(&path, json).map_err(|e| CommandError::Message(format!("写入导出文件失败：{e}")))?;
-    Ok(())
+fn read_envelope(path: &str) -> Result<ImportEnvelope, CommandError> {
+    let raw = fs::read_to_string(path)
+        .map_err(|e| CommandError::Message(format!("读取导入文件失败：{e}")))?;
+    serde_json::from_str(&raw)
+        .map_err(|e| CommandError::Invalid(format!("导入文件不是有效的 cdown 备份：{e}")))
 }
 
 /// 逐条严格校验，任何一条无效即整体失败，不产生半导入状态。
@@ -73,27 +81,88 @@ fn validate_items(items: &[CountdownItem]) -> Result<(), CommandError> {
     Ok(())
 }
 
-/// 全量导入：替换语义（现有倒计时与设置整体被文件内容覆盖）。
+/// 导出全部倒计时项（不含设置）。
 #[tauri::command]
 #[specta::specta]
-pub fn import_data(store: State<'_, Store>, path: String) -> Result<ImportResult, CommandError> {
-    let raw = fs::read_to_string(&path)
-        .map_err(|e| CommandError::Message(format!("读取导入文件失败：{e}")))?;
-    let payload: ImportPayload = serde_json::from_str(&raw)
-        .map_err(|e| CommandError::Invalid(format!("导入文件不是有效的 cdown 备份：{e}")))?;
-    validate_items(&payload.items)?;
+pub fn export_items(store: State<'_, Store>, path: String) -> Result<(), CommandError> {
+    let data = store.read()?;
+    let payload = ItemsExport {
+        app: EXPORT_FORMAT,
+        version: EXPORT_VERSION,
+        kind: KIND_ITEMS,
+        exported_at: now_stamp(),
+        items: &data.items,
+    };
+    write_json(&path, &payload)
+}
 
-    let mut settings = payload.settings.unwrap_or_default();
+/// 导入倒计时（替换现有全部倒计时项，设置不动）。
+#[tauri::command]
+#[specta::specta]
+pub fn import_items(
+    store: State<'_, Store>,
+    path: String,
+) -> Result<ImportItemsResult, CommandError> {
+    let envelope = read_envelope(&path)?;
+    if envelope.kind != KIND_ITEMS {
+        return Err(CommandError::Invalid(
+            "该文件不是倒计时导出文件（kind 不匹配）".into(),
+        ));
+    }
+    let items = envelope
+        .items
+        .ok_or_else(|| CommandError::Invalid("导入文件缺少 items 内容".into()))?;
+    validate_items(&items)?;
+    let count = items.len();
+    store.mutate(move |d: &mut StoreData| -> Result<(), CommandError> {
+        d.items = items;
+        Ok(())
+    })?;
+    Ok(ImportItemsResult { items: count })
+}
+
+/// 导出设置（不含倒计时项）。
+#[tauri::command]
+#[specta::specta]
+pub fn export_settings(store: State<'_, Store>, path: String) -> Result<(), CommandError> {
+    let data = store.read()?;
+    let payload = SettingsExport {
+        app: EXPORT_FORMAT,
+        version: EXPORT_VERSION,
+        kind: KIND_SETTINGS,
+        exported_at: now_stamp(),
+        settings: &data.settings,
+    };
+    write_json(&path, &payload)
+}
+
+/// 导入设置（替换现有设置，倒计时项不动）。
+#[tauri::command]
+#[specta::specta]
+pub fn import_settings(store: State<'_, Store>, path: String) -> Result<(), CommandError> {
+    let envelope = read_envelope(&path)?;
+    if envelope.kind != KIND_SETTINGS {
+        return Err(CommandError::Invalid(
+            "该文件不是设置导出文件（kind 不匹配）".into(),
+        ));
+    }
+    let mut settings = envelope
+        .settings
+        .ok_or_else(|| CommandError::Invalid("导入文件缺少 settings 内容".into()))?;
     settings.red_threshold_days = settings.red_threshold_days.min(365);
     settings.column_widths = settings.column_widths.sanitized();
-
-    let count = payload.items.len();
     store.mutate(move |d: &mut StoreData| -> Result<(), CommandError> {
-        d.items = payload.items;
         d.settings = settings;
         Ok(())
     })?;
-    Ok(ImportResult { items: count })
+    Ok(())
+}
+
+fn write_json<T: serde::Serialize>(path: &str, payload: &T) -> Result<(), CommandError> {
+    let json =
+        serde_json::to_string_pretty(payload).map_err(|e| CommandError::Store(e.to_string()))?;
+    fs::write(path, json).map_err(|e| CommandError::Message(format!("写入导出文件失败：{e}")))?;
+    Ok(())
 }
 
 #[cfg(test)]

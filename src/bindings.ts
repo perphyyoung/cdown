@@ -17,10 +17,14 @@ export const commands = {
 	 *  会死锁（官方文档明确警告，命令/事件处理器里要改用 async 或独立线程）。
 	 */
 	openSettings: () => __TAURI_INVOKE<null>("open_settings"),
-	/**  全量导出：当前全部倒计时项与设置写入 path（JSON，pretty）。 */
-	exportData: (path: string) => __TAURI_INVOKE<null>("export_data", { path }),
-	/**  全量导入：替换语义（现有倒计时与设置整体被文件内容覆盖）。 */
-	importData: (path: string) => __TAURI_INVOKE<ImportResult>("import_data", { path }),
+	/**  导出全部倒计时项（不含设置）。 */
+	exportItems: (path: string) => __TAURI_INVOKE<null>("export_items", { path }),
+	/**  导入倒计时（替换现有全部倒计时项，设置不动）。 */
+	importItems: (path: string) => __TAURI_INVOKE<ImportItemsResult>("import_items", { path }),
+	/**  导出设置（不含倒计时项）。 */
+	exportSettings: (path: string) => __TAURI_INVOKE<null>("export_settings", { path }),
+	/**  导入设置（替换现有设置，倒计时项不动）。 */
+	importSettings: (path: string) => __TAURI_INVOKE<null>("import_settings", { path }),
 };
 
 /* Types */
@@ -43,7 +47,7 @@ export type CountdownItem = {
 	created_at: string,
 };
 
-export type ImportResult = {
+export type ImportItemsResult = {
 	/**  导入的倒计时条数 */
 	items: number,
 };

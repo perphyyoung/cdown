@@ -1,4 +1,4 @@
-use super::{validate_items, ImportPayload};
+use super::{validate_items, ImportEnvelope, KIND_ITEMS, KIND_SETTINGS};
 use crate::domain::model::CountdownItem;
 
 fn item(title: &str, date: &str) -> CountdownItem {
@@ -24,10 +24,15 @@ fn validate_items_rejects_blank_title_and_bad_date() {
 }
 
 #[test]
-fn import_payload_parses_without_settings() {
-    let p: ImportPayload =
-        serde_json::from_str(r#"{"items":[{"id":"it-1","title":"a","target_date":"2030-01-01","note":null,"created_at":""}]}"#)
-            .unwrap();
-    assert_eq!(p.items.len(), 1);
-    assert!(p.settings.is_none());
+fn envelope_parses_by_kind() {
+    let items_file = r#"{"kind":"items","items":[{"id":"it-1","title":"a","target_date":"2030-01-01","note":null,"created_at":""}]}"#;
+    let p: ImportEnvelope = serde_json::from_str(items_file).unwrap();
+    assert_eq!(p.kind, KIND_ITEMS);
+    assert_eq!(p.items.unwrap().len(), 1);
+
+    let settings_file = r#"{"kind":"settings","settings":{"red_threshold_days":5}}"#;
+    let p: ImportEnvelope = serde_json::from_str(settings_file).unwrap();
+    assert_eq!(p.kind, KIND_SETTINGS);
+    assert!(p.items.is_none());
+    assert_eq!(p.settings.unwrap().red_threshold_days, 5);
 }
