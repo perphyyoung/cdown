@@ -1,17 +1,22 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { emit } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import { VueDatePicker } from "@vuepic/vue-datepicker";
 import { commands } from "@/bindings";
 
 // 独立日期选择弹窗：inline 日历 + auto-apply，选中即广播并关窗；无时间选择
 const value = ref<Date | null>(null);
 
-onMounted(async () => {
-  const iso = await commands.getDatePickerPayload();
+function applyIso(iso: string | null) {
   if (!iso) return;
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   if (m) value.value = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+}
+
+onMounted(async () => {
+  applyIso(await commands.getDatePickerPayload());
+  // 窗口常驻复用：再次打开时主窗口经此事件推送新的初始值
+  await listen<string | null>("date-payload", (e) => applyIso(e.payload));
 });
 
 function toIso(v: Date): string {

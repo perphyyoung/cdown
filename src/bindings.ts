@@ -26,14 +26,13 @@ export const commands = {
 	/**  导入设置（替换现有设置，倒计时项不动）。 */
 	importSettings: (path: string) => __TAURI_INVOKE<null>("import_settings", { path }),
 	/**
-	 *  打开日期选择弹窗（主窗口在输入框下方定位后调用；x/y 为逻辑像素屏幕坐标）。
-	 *  已存在则改位置并复用。必须是 async 命令（WebviewWindowBuilder::build 在
-	 *  同步命令里于 Windows 上死锁，官方文档警告）。
+	 *  打开日期选择弹窗（前端点击日期框调用）。必须是 async 命令
+	 *  （WebviewWindowBuilder::build 在同步命令里于 Windows 上死锁，官方文档警告）。
 	 */
 	openDatePicker: (x: number | null, y: number | null, date: string | null) => __TAURI_INVOKE<null>("open_date_picker", { x, y, date }),
 	/**  弹窗挂载时读取初始选中值（ISO 字符串，无则返回 None）。 */
 	getDatePickerPayload: () => __TAURI_INVOKE<string | null>("get_date_picker_payload"),
-	/**  选中日期后由弹窗调用：关闭自身。 */
+	/**  选中日期后由弹窗调用：隐藏自身（窗口保留供复用）。 */
 	closeDatePicker: () => __TAURI_INVOKE<null>("close_date_picker"),
 };
 
