@@ -4,6 +4,7 @@ import { formatDays } from "./logic";
 import { countdownState, type ColumnWidths, type CountdownRow } from "./useCountdown";
 import type { CountdownItem } from "@/bindings";
 import EditableRow from "./EditableRow.vue";
+import ConfirmDialog from "@/components/ConfirmDialog.vue";
 
 const props = defineProps<{ rows: CountdownRow[]; widths: ColumnWidths }>();
 const emit = defineEmits<{
@@ -64,13 +65,9 @@ function isEditing(id: string) {
 }
 
 // 行右键菜单：全应用唯一的右键入口（默认菜单已在 main.ts 全局禁用）。
-// 删除需二次确认：第一次点「删除」只切换为确认态。
-const menu = ref<{
-  x: number;
-  y: number;
-  item: CountdownItem;
-  confirming: boolean;
-} | null>(null);
+// 删除走自定义确认对话框（双击误确认，菜单内两步确认已废弃）。
+const menu = ref<{ x: number; y: number; item: CountdownItem } | null>(null);
+const pendingDelete = ref<CountdownItem | null>(null);
 
 function openMenu(e: MouseEvent, item: CountdownItem) {
   const mw = 96;
@@ -79,7 +76,6 @@ function openMenu(e: MouseEvent, item: CountdownItem) {
     x: Math.min(e.clientX, window.innerWidth - mw - 4),
     y: Math.min(e.clientY, window.innerHeight - mh - 4),
     item,
-    confirming: false,
   };
 }
 function closeMenu() {
@@ -91,12 +87,13 @@ function menuEdit() {
 }
 function menuRemove() {
   if (!menu.value) return;
-  if (!menu.value.confirming) {
-    menu.value.confirming = true;
-    return;
-  }
-  emit("remove", menu.value.item.id);
+  pendingDelete.value = menu.value.item;
   closeMenu();
+}
+
+function confirmRemove() {
+  if (pendingDelete.value) emit("remove", pendingDelete.value.id);
+  pendingDelete.value = null;
 }
 </script>
 
@@ -199,13 +196,22 @@ function menuRemove() {
           编辑
         </button>
         <button
-          class="block w-full px-3 py-1.5 text-left hover:bg-slate-700"
-          :class="menu.confirming ? 'bg-red-900/60 text-red-200' : 'text-red-300'"
+          class="block w-full px-3 py-1.5 text-left text-red-300 hover:bg-slate-700"
           @click="menuRemove()"
         >
-          {{ menu.confirming ? "确认删除？" : "删除" }}
+          删除
         </button>
       </div>
     </template>
+
+    <ConfirmDialog
+      :open="pendingDelete !== null"
+      title="删除倒计时"
+      :message="`删除「${pendingDelete?.title ?? ''}」？删除后不可恢复。`"
+      confirm-text="删除"
+      danger
+      @confirm="confirmRemove"
+      @cancel="pendingDelete = null"
+    />
   </main>
 </template>
