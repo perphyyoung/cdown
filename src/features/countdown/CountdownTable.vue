@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, watch } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { formatDays } from "./logic";
 import type { ColumnWidths, CountdownRow } from "./useCountdown";
 import type { CountdownItem } from "@/bindings";
@@ -38,8 +38,24 @@ function onUp() {
 }
 
 const gridStyle = computed(() => ({
-  gridTemplateColumns: `${local.name}px ${local.target}px ${local.remaining}px ${local.note}px 2.75rem`,
+  gridTemplateColumns: `${local.name}px ${local.target}px ${local.remaining}px ${local.note}px`,
 }));
+
+// 行右键菜单：全应用唯一的右键入口（默认菜单已在 main.ts 全局禁用）
+const menu = ref<{ x: number; y: number; item: CountdownItem } | null>(null);
+
+function openMenu(e: MouseEvent, item: CountdownItem) {
+  const mw = 96;
+  const mh = 76;
+  menu.value = {
+    x: Math.min(e.clientX, window.innerWidth - mw - 4),
+    y: Math.min(e.clientY, window.innerHeight - mh - 4),
+    item,
+  };
+}
+function closeMenu() {
+  menu.value = null;
+}
 </script>
 
 <template>
@@ -93,7 +109,6 @@ const gridStyle = computed(() => ({
             @pointercancel="onUp"
           ></span>
         </span>
-        <span></span>
       </div>
       <div v-if="rows.length === 0" class="py-8 text-center text-xs text-slate-500">
         暂无倒计时，在下方添加
@@ -110,6 +125,7 @@ const gridStyle = computed(() => ({
               ? 'text-red-400'
               : 'text-slate-200'
         "
+        @contextmenu.prevent="openMenu($event, row.item)"
       >
         <span class="truncate text-sm" :title="row.item.title">{{ row.item.title }}</span>
         <span class="text-right text-xs text-slate-400">{{ row.item.target_date }}</span>
@@ -117,23 +133,35 @@ const gridStyle = computed(() => ({
         <span class="truncate text-xs text-slate-500" :title="row.item.note ?? ''">
           {{ row.item.note }}
         </span>
-        <span class="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-          <button
-            class="px-1 text-slate-500 hover:text-slate-100"
-            title="编辑"
-            @click="emit('edit', row.item)"
-          >
-            ✎
-          </button>
-          <button
-            class="px-1 text-slate-500 hover:text-red-300"
-            title="删除"
-            @click="emit('remove', row.item.id)"
-          >
-            ✕
-          </button>
-        </span>
       </div>
     </div>
+
+    <template v-if="menu">
+      <!-- 透明遮罩：点击/右键任意处关闭菜单 -->
+      <div class="fixed inset-0 z-40" @pointerdown="closeMenu" @contextmenu.prevent="closeMenu" />
+      <div
+        class="fixed z-50 min-w-[96px] rounded bg-slate-800 py-1 text-xs shadow-xl shadow-black/40 ring-1 ring-slate-700"
+        :style="{ left: `${menu.x}px`, top: `${menu.y}px` }"
+      >
+        <button
+          class="block w-full px-3 py-1.5 text-left text-slate-200 hover:bg-slate-700"
+          @click="
+            emit('edit', menu.item);
+            closeMenu();
+          "
+        >
+          编辑
+        </button>
+        <button
+          class="block w-full px-3 py-1.5 text-left text-red-300 hover:bg-slate-700"
+          @click="
+            emit('remove', menu.item.id);
+            closeMenu();
+          "
+        >
+          删除
+        </button>
+      </div>
+    </template>
   </main>
 </template>
