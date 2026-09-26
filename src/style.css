@@ -12,3 +12,43 @@ body {
   margin: 0;
   background: #0f172a;
 }
+
+/* VueDatePicker 适配（v14：结构变量在 :root，颜色变量在主题类上） */
+:root {
+  --dp-font-size: 12px;
+  --dp-cell-size: 26px;
+  --dp-button-height: 26px;
+  --dp-month-year-row-height: 26px;
+  --dp-month-year-row-button-size: 20px;
+  --dp-button-icon-height: 14px;
+  --dp-menu-min-width: 220px;
+  --dp-menu-padding: 6px;
+  --dp-row-margin: 2px 0;
+  --dp-calendar-header-cell-padding: 4px;
+  --dp-border-radius: 4px;
+  --dp-cell-border-radius: 4px;
+}
+
+.dp--theme-dark {
+  --dp-background-color: #1e293b;
+  --dp-text-color: #e2e8f0;
+  --dp-hover-color: #334155;
+  --dp-hover-text-color: #f1f5f9;
+  --dp-hover-icon-color: #cbd5e1;
+  --dp-primary-color: #3b82f6;
+  --dp-primary-text-color: #f1f5f9;
+  --dp-border-color: #334155;
+  --dp-menu-border-color: #334155;
+  --dp-border-color-hover: #64748b;
+  --dp-border-color-focus: #64748b;
+  --dp-icon-color: #94a3b8;
+  --dp-secondary-color: #64748b;
+}
+
+/* 行内输入紧凑化：对齐表格行内输入风格 */
+.dp--input {
+  padding: 4px 8px;
+  text-align: center;
+  color: #e2e8f0;
+  background-color: rgb(15 23 42 / 0.7);
+}

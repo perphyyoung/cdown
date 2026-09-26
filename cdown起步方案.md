@@ -42,6 +42,7 @@
 
 - `tauri-plugin-single-instance`（最先注册；小组件必须防多开）
 - `tauri-plugin-dialog` + `@tauri-apps/plugin-dialog`（设置页全量导出/导入的保存/选文件对话框）
+- `@vuepic/vue-datepicker`（行内日期选择；原生 date 控件显示格式跟随系统区域无法控制，见调研结论：显示与存储统一 `yyyy-MM-dd`）
 - `tauri` 的 `tray-icon` 特性（关到托盘、右键退出/唤起；小组件没有任务栏图标，托盘是唯一出口）
 - 二期候选：`tauri-plugin-autostart`（开机自启，小组件类应用大概率需要）
 

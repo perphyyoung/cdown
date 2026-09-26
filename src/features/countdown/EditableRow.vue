@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
+import { VueDatePicker } from "@vuepic/vue-datepicker";
 import { daysUntil, formatDays, rowState } from "./logic";
 import { countdownState } from "./useCountdown";
 
@@ -10,6 +11,19 @@ const days = computed(() => daysUntil(draft.value.targetDate, today.value));
 const preview = computed(() => rowState(days.value, settings.value.levels));
 
 const rowEl = ref<HTMLElement | null>(null);
+
+// 日期选择：v-model 用 Date，与 ISO 字符串互转；显示格式由 formats 固定 yyyy-MM-dd
+const pickerDate = computed<Date | null>({
+  get: () => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(draft.value.targetDate);
+    return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+  },
+  set: (v) => {
+    draft.value.targetDate = v
+      ? `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, "0")}-${String(v.getDate()).padStart(2, "0")}`
+      : "";
+  },
+});
 
 // 失焦自动保存：焦点移到行内其它输入框不触发
 function onBlur(e: FocusEvent) {
@@ -43,10 +57,17 @@ onUnmounted(() => document.removeEventListener("pointerdown", onDocPointerdown, 
     >
       {{ Number.isNaN(days) ? "—" : formatDays(days) }}
     </span>
-    <input
-      v-model="draft.targetDate"
-      type="date"
-      class="min-w-0 rounded bg-slate-900/70 px-1.5 py-0.5 text-center text-xs text-slate-100 outline-none ring-1 ring-slate-700 focus:ring-slate-500"
+    <VueDatePicker
+      v-model="pickerDate"
+      :formats="{ input: 'yyyy-MM-dd', month: 'MM' }"
+      :enable-time-picker="false"
+      auto-apply
+      :clearable="false"
+      hide-input-icon
+      dark
+      position="left"
+      placeholder="YYYY-MM-DD"
+      class="min-w-0"
     />
     <input
       v-model="draft.title"
