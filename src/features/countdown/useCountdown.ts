@@ -1,6 +1,8 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { commands, type CountdownItem, type Settings } from "@/bindings";
-import { daysUntil, rowState, todayStr, type RowState } from "./logic";
+import { daysUntil, rowState, todayStr, type RowState, type UrgencyLevel } from "./logic";
+
+export type { UrgencyLevel };
 
 export interface FormValue {
   title: string;
@@ -20,23 +22,30 @@ export interface CountdownRow {
   item: CountdownItem;
   days: number;
   state: RowState;
+  /** 仅 level 态有值 */
+  color?: string;
 }
 
 /** 行内编辑目标：add = 新增草稿行（显示在最后）；edit = 修改既有行 */
 export type EditTarget = { mode: "add" } | { mode: "edit"; id: string };
 
 interface SettingsView {
-  red_threshold_days: number;
+  levels: UrgencyLevel[];
   column_widths: ColumnWidths;
 }
 
 // bindings 里字段因 Rust 侧 serde(default) 导出为可选，读取前先归一化
 const DEFAULT_WIDTHS: ColumnWidths = { name: 92, target: 70, countdown: 52, note: 50 };
+const FALLBACK_COLOR = "#fb923c";
 
 function normalizeSettings(cfg: Settings): SettingsView {
   const w = cfg.column_widths ?? {};
+  const levels = (cfg.levels ?? []).map((l) => ({
+    thresholdDays: l.threshold_days ?? 0,
+    color: l.color ?? FALLBACK_COLOR,
+  }));
   return {
-    red_threshold_days: cfg.red_threshold_days ?? 3,
+    levels,
     column_widths: {
       name: w.name ?? DEFAULT_WIDTHS.name,
       target: w.target ?? DEFAULT_WIDTHS.target,
@@ -49,7 +58,10 @@ function normalizeSettings(cfg: Settings): SettingsView {
 // 模块级单例状态：App 挂生命周期，子组件经 countdownState() 共享同一份
 const items = ref<CountdownItem[]>([]);
 const settings = ref<SettingsView>({
-  red_threshold_days: 3,
+  levels: [
+    { thresholdDays: 7, color: "#a78bfa" },
+    { thresholdDays: 3, color: "#fb923c" },
+  ],
   column_widths: { ...DEFAULT_WIDTHS },
 });
 const today = ref(todayStr());
@@ -98,9 +110,12 @@ async function deleteItem(id: string) {
   await reload();
 }
 
-async function saveSettings(patch: { redThresholdDays?: number; columnWidths?: ColumnWidths }) {
+async function saveSettings(patch: { levels?: UrgencyLevel[]; columnWidths?: ColumnWidths }) {
   const next: Settings = {
-    red_threshold_days: patch.redThresholdDays ?? settings.value.red_threshold_days,
+    levels: (patch.levels ?? settings.value.levels).map((l) => ({
+      threshold_days: l.thresholdDays,
+      color: l.color,
+    })),
     column_widths: patch.columnWidths ?? settings.value.column_widths,
   };
   settings.value = normalizeSettings(await commands.setSettings(next));
@@ -151,7 +166,8 @@ export function countdownState() {
       items.value
         .map((item) => {
           const days = daysUntil(item.target_date, today.value);
-          return { item, days, state: rowState(days, settings.value.red_threshold_days) };
+          const { state, color } = rowState(days, settings.value.levels);
+          return { item, days, state, color };
         })
         .sort((a, b) => a.days - b.days),
     ),

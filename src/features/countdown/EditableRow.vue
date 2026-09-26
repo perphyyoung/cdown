@@ -1,15 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import { daysUntil, formatDays } from "./logic";
+import { daysUntil, formatDays, rowState } from "./logic";
 import { countdownState } from "./useCountdown";
 
-// 行内编辑行：新增草稿与修改既有行共用；倒计时列只读，随目标日期实时重算
-const { draft, today, commitEdit, cancelEdit } = countdownState();
+// 行内编辑行：新增草稿与修改既有行共用；倒计时列只读，随目标日期实时重算并按分级着色
+const { draft, today, settings, commitEdit, cancelEdit } = countdownState();
 
-const daysLabel = computed(() => {
-  const d = daysUntil(draft.value.targetDate, today.value);
-  return Number.isNaN(d) ? "—" : formatDays(d);
-});
+const days = computed(() => daysUntil(draft.value.targetDate, today.value));
+const preview = computed(() => rowState(days.value, settings.value.levels));
 
 const rowEl = ref<HTMLElement | null>(null);
 
@@ -38,7 +36,13 @@ onUnmounted(() => document.removeEventListener("pointerdown", onDocPointerdown, 
     @keydown.esc="cancelEdit()"
     @focusout="onBlur"
   >
-    <span class="text-xs font-medium text-slate-400">{{ daysLabel }}</span>
+    <span
+      class="text-xs font-medium"
+      :class="preview.state === 'expired' ? 'text-red-400/70' : 'text-slate-400'"
+      :style="preview.state === 'level' && preview.color ? { color: preview.color } : {}"
+    >
+      {{ Number.isNaN(days) ? "—" : formatDays(days) }}
+    </span>
     <input
       v-model="draft.targetDate"
       type="date"

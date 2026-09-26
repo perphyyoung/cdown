@@ -30,9 +30,12 @@ fn envelope_parses_by_kind() {
     assert_eq!(p.kind, KIND_ITEMS);
     assert_eq!(p.items.unwrap().len(), 1);
 
-    let settings_file = r#"{"kind":"settings","settings":{"red_threshold_days":5}}"#;
+    let settings_file =
+        r##"{"kind":"settings","settings":{"levels":[{"threshold_days":5,"color":"#ffffff"}]}}"##;
     let p: ImportEnvelope = serde_json::from_str(settings_file).unwrap();
     assert_eq!(p.kind, KIND_SETTINGS);
     assert!(p.items.is_none());
-    assert_eq!(p.settings.unwrap().red_threshold_days, 5);
+    let s = p.settings.unwrap();
+    assert_eq!(s.levels[0].threshold_days, 5);
+    assert_eq!(s.levels[0].color, "#ffffff");
 }

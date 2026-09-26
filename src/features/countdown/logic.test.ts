@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { daysUntil, formatDays, rowState, todayStr } from "./logic";
+import { daysUntil, formatDays, rowState, todayStr, type UrgencyLevel } from "./logic";
 
 describe("daysUntil", () => {
   it("同一天为 0", () => {
@@ -29,23 +29,37 @@ describe("daysUntil", () => {
 });
 
 describe("rowState", () => {
+  const levels: UrgencyLevel[] = [
+    { thresholdDays: 7, color: "#a78bfa" },
+    { thresholdDays: 3, color: "#fb923c" },
+  ];
+
   it("过去为 expired", () => {
-    expect(rowState(-1, 3)).toBe("expired");
-    expect(rowState(-100, 3)).toBe("expired");
+    expect(rowState(-1, levels)).toEqual({ state: "expired" });
+    expect(rowState(-100, levels)).toEqual({ state: "expired" });
   });
 
-  it("当天与阈值内（含边界）为 soon", () => {
-    expect(rowState(0, 3)).toBe("soon");
-    expect(rowState(3, 3)).toBe("soon");
+  it("命中最高级（含边界 days == threshold）", () => {
+    expect(rowState(7, levels)).toEqual({ state: "level", color: "#a78bfa" });
+    expect(rowState(6, levels)).toEqual({ state: "level", color: "#a78bfa" });
   });
 
-  it("超过阈值为 normal", () => {
-    expect(rowState(4, 3)).toBe("normal");
+  it("命中次级（含当天）", () => {
+    expect(rowState(3, levels)).toEqual({ state: "level", color: "#fb923c" });
+    expect(rowState(0, levels)).toEqual({ state: "level", color: "#fb923c" });
   });
 
-  it("阈值为 0 时仅当天变红", () => {
-    expect(rowState(0, 0)).toBe("soon");
-    expect(rowState(1, 0)).toBe("normal");
+  it("超过所有阈值为 normal", () => {
+    expect(rowState(8, levels)).toEqual({ state: "normal" });
+  });
+
+  it("乱序输入也按降序命中最高可用级", () => {
+    expect(rowState(5, [levels[1], levels[0]])).toEqual({ state: "level", color: "#a78bfa" });
+  });
+
+  it("空分级时全部 normal（过期除外）", () => {
+    expect(rowState(0, [])).toEqual({ state: "normal" });
+    expect(rowState(-1, [])).toEqual({ state: "expired" });
   });
 });
 

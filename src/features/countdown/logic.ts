@@ -1,7 +1,19 @@
 // 倒计时纯逻辑：以「本地日期字符串 YYYY-MM-DD」为入参，无时钟依赖，可单测。
 // 精度到天：不做秒级计时，天与天的分界在午夜。
 
-export type RowState = "normal" | "soon" | "expired";
+/** 紧急度分级：剩余天数 ≤ thresholdDays 时采用 color（levels 按阈值降序） */
+export interface UrgencyLevel {
+  thresholdDays: number;
+  color: string;
+}
+
+export type RowState = "normal" | "level" | "expired";
+
+export interface RowStateResult {
+  state: RowState;
+  /** 仅 level 态有值 */
+  color?: string;
+}
 
 export function todayStr(date: Date = new Date()): string {
   const y = date.getFullYear();
@@ -18,11 +30,18 @@ export function daysUntil(targetDate: string, today: string): number {
   return Math.round((t - n) / 86_400_000);
 }
 
-/** days < 0 → expired；days ≤ thresholdDays（含当天 days = 0）→ soon；否则 normal。 */
-export function rowState(days: number, thresholdDays: number): RowState {
-  if (days < 0) return "expired";
-  if (days <= thresholdDays) return "soon";
-  return "normal";
+/**
+ * days < 0 → expired（固定红色样式）；
+ * days ≤ 某级阈值 → level（返回该级颜色）；
+ * 命中规则：在所有满足 days ≤ 阈值的级别里取阈值最小（最紧急）的一级；
+ * 否则 normal。
+ */
+export function rowState(days: number, levels: UrgencyLevel[]): RowStateResult {
+  if (days < 0) return { state: "expired" };
+  const hit = levels
+    .filter((l) => days <= l.thresholdDays)
+    .sort((a, b) => a.thresholdDays - b.thresholdDays)[0];
+  return hit ? { state: "level", color: hit.color } : { state: "normal" };
 }
 
 export function formatDays(days: number): string {

@@ -149,7 +149,7 @@ pub fn import_settings(store: State<'_, Store>, path: String) -> Result<(), Comm
     let mut settings = envelope
         .settings
         .ok_or_else(|| CommandError::Invalid("导入文件缺少 settings 内容".into()))?;
-    settings.red_threshold_days = settings.red_threshold_days.min(365);
+    settings = settings.normalized();
     settings.column_widths = settings.column_widths.sanitized();
     store.mutate(move |d: &mut StoreData| -> Result<(), CommandError> {
         d.settings = settings;

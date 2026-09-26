@@ -48,27 +48,79 @@ impl ColumnWidths {
     }
 }
 
+/// 紧急度分级：剩余天数 ≤ threshold_days 时该行采用 color 显示（含当天 days = 0）。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, specta::Type)]
+pub struct UrgencyLevel {
+    pub threshold_days: u32,
+    /// 行文字颜色，`#RRGGBB`
+    pub color: String,
+}
+
+const MAX_LEVELS: usize = 6;
+const FALLBACK_COLOR: &str = "#fb923c";
+
+fn default_levels() -> Vec<UrgencyLevel> {
+    vec![
+        UrgencyLevel {
+            threshold_days: 7,
+            color: "#a78bfa".into(), // 紫 violet-400
+        },
+        UrgencyLevel {
+            threshold_days: 3,
+            color: "#fb923c".into(), // 橙 orange-400
+        },
+    ]
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, specta::Type)]
 pub struct Settings {
-    /// 临近阈值（天）：剩余天数 ≤ 该值时前端标红；默认 3
-    #[serde(default = "default_red_threshold_days")]
-    pub red_threshold_days: u32,
+    /// 紧急度分级：按阈值降序存储；过期固定红色，不在此列
+    #[serde(default = "default_levels")]
+    pub levels: Vec<UrgencyLevel>,
     /// 表格四列宽度（px）
     #[serde(default)]
     pub column_widths: ColumnWidths,
 }
 
-fn default_red_threshold_days() -> u32 {
-    3
-}
-
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            red_threshold_days: 3,
+            levels: default_levels(),
             column_widths: ColumnWidths::default(),
         }
     }
+}
+
+impl Settings {
+    /// 归一化：非法颜色回落、阈值去重、降序排序、条数上限
+    pub fn normalized(mut self) -> Self {
+        let mut seen: Vec<u32> = Vec::new();
+        let mut levels = Vec::with_capacity(self.levels.len());
+        for l in self.levels.drain(..) {
+            if seen.contains(&l.threshold_days) {
+                continue;
+            }
+            seen.push(l.threshold_days);
+            let color = if is_hex_color(&l.color) {
+                l.color
+            } else {
+                FALLBACK_COLOR.into()
+            };
+            levels.push(UrgencyLevel {
+                threshold_days: l.threshold_days,
+                color,
+            });
+        }
+        levels.sort_by(|a, b| b.threshold_days.cmp(&a.threshold_days));
+        levels.truncate(MAX_LEVELS);
+        self.levels = levels;
+        self
+    }
+}
+
+fn is_hex_color(s: &str) -> bool {
+    let b = s.as_bytes();
+    b.len() == 7 && b[0] == b'#' && b[1..].iter().all(u8::is_ascii_hexdigit)
 }
 
 #[cfg(test)]

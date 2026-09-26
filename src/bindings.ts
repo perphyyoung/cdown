@@ -53,9 +53,16 @@ export type ImportItemsResult = {
 };
 
 export type Settings = {
-	/**  临近阈值（天）：剩余天数 ≤ 该值时前端标红；默认 3 */
-	red_threshold_days?: number,
+	/**  紧急度分级：按阈值降序存储；过期固定红色，不在此列 */
+	levels?: UrgencyLevel[],
 	/**  表格四列宽度（px） */
 	column_widths?: ColumnWidths,
+};
+
+/**  紧急度分级：剩余天数 ≤ threshold_days 时该行采用 color 显示（含当天 days = 0）。 */
+export type UrgencyLevel = {
+	threshold_days: number,
+	/**  行文字颜色，`#RRGGBB` */
+	color: string,
 };
 

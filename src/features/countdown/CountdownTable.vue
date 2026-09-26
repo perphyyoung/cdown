@@ -42,6 +42,13 @@ const gridStyle = computed(() => ({
   gridTemplateColumns: `${local.countdown}px ${local.target}px ${local.name}px ${local.note}px`,
 }));
 
+// 行着色：level 态使用用户自定义颜色（内联样式覆盖默认字色）
+function rowStyle(row: CountdownRow) {
+  return row.state === "level" && row.color
+    ? { ...gridStyle.value, color: row.color }
+    : gridStyle.value;
+}
+
 const { editing, startEdit } = countdownState();
 
 const mainEl = ref<HTMLElement | null>(null);
@@ -156,12 +163,12 @@ function menuRemove() {
         <div
           v-else
           class="grid items-center gap-x-2 rounded px-1 py-1.5 text-center hover:bg-slate-800/60"
-          :style="gridStyle"
+          :style="rowStyle(row)"
           :class="
             row.state === 'expired'
               ? 'text-red-400/70'
-              : row.state === 'soon'
-                ? 'text-red-400'
+              : row.state === 'level'
+                ? ''
                 : 'text-slate-200'
           "
           @contextmenu.prevent="openMenu($event, row.item)"

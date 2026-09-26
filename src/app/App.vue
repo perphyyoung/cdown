@@ -5,7 +5,11 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import CountdownTable from "@/features/countdown/CountdownTable.vue";
 import SettingsPage from "@/features/countdown/SettingsPage.vue";
 import { commands } from "@/bindings";
-import { useCountdown, type ColumnWidths } from "@/features/countdown/useCountdown";
+import {
+  useCountdown,
+  type ColumnWidths,
+  type UrgencyLevel,
+} from "@/features/countdown/useCountdown";
 
 const {
   rows,
@@ -46,7 +50,7 @@ async function onRemove(id: string) {
   }
 }
 
-async function saveSettings(patch: { redThresholdDays?: number; columnWidths?: ColumnWidths }) {
+async function saveSettings(patch: { levels?: UrgencyLevel[]; columnWidths?: ColumnWidths }) {
   try {
     await persistSettings(patch);
   } catch (e) {

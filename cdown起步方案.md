@@ -3,7 +3,7 @@
 ## 1. 定位
 
 - 常驻桌面的小窗口小组件：以表格样式列出倒计时项（名称、目标日期、剩余天数，备注列在剩余右侧）；四列宽度可单独拖拽调整并持久化（`Settings.column_widths`）。
-- 支持自定义「变红时间」（临近阈值天数），默认 3 天：剩余天数 ≤ 阈值时该行变红；已过期单独样式。
+- 支持多级紧急度着色：各级天数阈值与颜色可自定义（默认 7 天紫 / 3 天橙，最多 6 级），剩余天数命中「满足阈值的最紧急级」时按该级颜色显示；过期固定红色弱化。
 - **低资源占用**：时间精度到天即可，不做秒级计时；刷新频率压到最低（见 §6），无路由、单窗口、依赖从简。
 - 按《tauri2项目起步指南》起步，依赖按需引入（见 §3 取舍表）。
 
@@ -74,10 +74,10 @@ struct Settings { red_threshold_days: u32 }   // 默认 3
 
 - `src/features/countdown/logic.ts`（以「本地日期字符串 YYYY-MM-DD」为入参，可测、无时钟依赖）：
   - `daysUntil(targetDate, today) -> number`：目标日期 − 今天的天数差。
-  - `rowState(days, thresholdDays) -> normal | soon | expired`：`days < 0` → expired；`days ≤ thresholdDays` → soon（含当天，`days = 0`）；否则 normal。
+  - `rowState(days, levels) -> { state: normal | level | expired, color? }`：`days < 0` → expired；命中「满足 `days ≤ 阈值` 的级别中阈值最小（最紧急）的一级」→ level（返回该级颜色）；否则 normal。分级结构 `UrgencyLevel { threshold_days, color }`，后端归一化（去重/降序/上限 6/非法颜色回落）。
   - `formatDays(days) -> string`：`已过期 N 天` / `今天` / `明天` / `N 天`。
 - **资源占用口径**：精度到天，天与天的分界在午夜——常规 setInterval 每分钟重算一次已远超需要且开销可忽略（纯字符串日期差，无 DOM 重排）；窗口隐藏（`visibilitychange`）时暂停 tick，恢复可见时立即重算一次。
-- 变红：`soon` 行红色；`expired` 行红色加弱化/「已过期」标记。
+- 变红/着色：`level` 行内联样式采用该级自定义颜色；`expired` 行固定红色弱化。
 - 阈值天数是全局设置（默认 3），在组件内小表单可改；如需按行覆盖再加 `item.red_threshold_days?: number`。
 
 ## 7. 目录结构

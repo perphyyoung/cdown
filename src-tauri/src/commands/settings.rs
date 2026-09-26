@@ -1,4 +1,4 @@
-//! 设置命令：临近变红阈值（天）与表格列宽；设置窗口的创建/唤起。
+//! 设置命令：紧急度分级与表格列宽；设置窗口的创建/唤起。
 
 use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
@@ -24,8 +24,7 @@ pub fn open_settings_window(app: &AppHandle) -> Result<(), CommandError> {
             WebviewUrl::App("index.html".into()),
         )
         .title("cdown 设置")
-        .inner_size(320.0, 260.0)
-        .min_inner_size(280.0, 220.0)
+        .inner_size(640.0, 280.0)
         .resizable(true)
         .always_on_top(true)
         .center()
@@ -53,13 +52,8 @@ pub fn get_settings(store: State<'_, Store>) -> Result<Settings, CommandError> {
 #[tauri::command]
 #[specta::specta]
 pub fn set_settings(store: State<'_, Store>, settings: Settings) -> Result<Settings, CommandError> {
-    let settings = Settings {
-        red_threshold_days: settings.red_threshold_days,
-        column_widths: settings.column_widths.sanitized(),
-    };
-    if settings.red_threshold_days > 365 {
-        return Err(CommandError::Invalid("阈值不能超过 365 天".into()));
-    }
+    let mut settings = settings.normalized();
+    settings.column_widths = settings.column_widths.sanitized();
     store.mutate(|d: &mut StoreData| -> Result<(), CommandError> {
         d.settings = settings.clone();
         Ok(())

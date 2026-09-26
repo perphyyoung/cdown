@@ -1,5 +1,5 @@
 use super::{Store, StoreData, StoreError};
-use crate::domain::model::{ColumnWidths, CountdownItem, Settings};
+use crate::domain::model::{ColumnWidths, CountdownItem, Settings, UrgencyLevel};
 use std::fs;
 
 fn temp_store(tag: &str) -> Store {
@@ -24,7 +24,7 @@ fn missing_file_yields_default() {
     let store = temp_store("missing");
     let data = store.read().unwrap();
     assert!(data.items.is_empty());
-    assert_eq!(data.settings.red_threshold_days, 3);
+    assert_eq!(data.settings.levels, Settings::default().levels);
 }
 
 #[test]
@@ -41,7 +41,7 @@ fn mutate_roundtrip_persists_items() {
     assert_eq!(data.items.len(), 1);
     assert_eq!(data.items[0].id, "it-1");
     // Settings 缺省字段回落默认值
-    assert_eq!(data.settings.red_threshold_days, 3);
+    assert_eq!(data.settings.levels, Settings::default().levels);
 }
 
 #[test]
@@ -50,7 +50,7 @@ fn corrupt_file_backs_up_and_falls_back_to_default() {
     fs::write(store.path.clone(), "{ not json").unwrap();
     let data = store.read().unwrap();
     assert!(data.items.is_empty());
-    assert_eq!(data.settings.red_threshold_days, 3);
+    assert_eq!(data.settings.levels, Settings::default().levels);
     // 现场保留为 .json.bak，且原文件已被移走（下次写入不会覆盖损坏现场）
     let bak = store.path.with_extension("json.bak");
     assert!(bak.exists());
@@ -63,12 +63,16 @@ fn save_then_reload_keeps_settings() {
     store
         .mutate(|d: &mut StoreData| -> Result<(), StoreError> {
             d.settings = Settings {
-                red_threshold_days: 7,
+                levels: vec![UrgencyLevel {
+                    threshold_days: 7,
+                    color: "#a78bfa".into(),
+                }],
                 column_widths: ColumnWidths::default(),
             };
             Ok(())
         })
         .unwrap();
     let data = store.read().unwrap();
-    assert_eq!(data.settings.red_threshold_days, 7);
+    assert_eq!(data.settings.levels.len(), 1);
+    assert_eq!(data.settings.levels[0].threshold_days, 7);
 }
