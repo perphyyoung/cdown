@@ -159,7 +159,7 @@ function confirmRemove() {
         <EditableRow v-if="isEditing(row.item.id)" :style="gridStyle" />
         <div
           v-else
-          class="grid items-center gap-x-2 rounded px-1 py-1.5 text-center hover:bg-slate-800/60"
+          class="grid h-9 items-center gap-x-2 rounded px-1 text-center hover:bg-slate-800/60"
           :style="rowStyle(row)"
           :class="
             row.state === 'expired'
