@@ -20,7 +20,8 @@ pub struct ColumnWidths {
     /// 各列宽度（px），可拖拽调整；默认值适配 320px 初始窗口，clamp 范围见 sanitized()
     pub name: u32,
     pub target: u32,
-    pub remaining: u32,
+    /// 倒计时列
+    pub countdown: u32,
     pub note: u32,
 }
 
@@ -29,7 +30,7 @@ impl Default for ColumnWidths {
         Self {
             name: 92,
             target: 70,
-            remaining: 52,
+            countdown: 52,
             note: 50,
         }
     }
@@ -41,7 +42,7 @@ impl ColumnWidths {
         Self {
             name: clamp(self.name),
             target: clamp(self.target),
-            remaining: clamp(self.remaining),
+            countdown: clamp(self.countdown),
             note: clamp(self.note),
         }
     }

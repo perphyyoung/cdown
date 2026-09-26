@@ -37,9 +37,9 @@ function onUp() {
   emit("resize", { ...local });
 }
 
-// 列顺序：剩余、名称、目标日期、备注
+// 列顺序：倒计时、目标日期、名称、备注
 const gridStyle = computed(() => ({
-  gridTemplateColumns: `${local.remaining}px ${local.name}px ${local.target}px ${local.note}px`,
+  gridTemplateColumns: `${local.countdown}px ${local.target}px ${local.name}px ${local.note}px`,
 }));
 
 const { editing, startEdit } = countdownState();
@@ -85,15 +85,26 @@ function menuRemove() {
   <main ref="mainEl" class="min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-auto px-2 pb-1">
     <div class="min-w-max">
       <div
-        class="grid items-center gap-x-2 border-b border-slate-800 px-1 py-1 text-xs text-slate-500"
+        class="grid items-center gap-x-2 border-b border-slate-800 px-1 py-1 text-center text-xs text-slate-500"
         :style="gridStyle"
       >
-        <span class="relative text-right">
-          剩余
+        <span class="relative">
+          倒计时
           <span
             class="absolute -right-1 top-0 h-full w-2 cursor-col-resize hover:bg-slate-600/60"
             title="拖拽调整列宽"
-            @pointerdown="onDown('remaining', $event)"
+            @pointerdown="onDown('countdown', $event)"
+            @pointermove="onMove"
+            @pointerup="onUp"
+            @pointercancel="onUp"
+          ></span>
+        </span>
+        <span class="relative">
+          目标日期
+          <span
+            class="absolute -right-1 top-0 h-full w-2 cursor-col-resize hover:bg-slate-600/60"
+            title="拖拽调整列宽"
+            @pointerdown="onDown('target', $event)"
             @pointermove="onMove"
             @pointerup="onUp"
             @pointercancel="onUp"
@@ -105,17 +116,6 @@ function menuRemove() {
             class="absolute -right-1 top-0 h-full w-2 cursor-col-resize hover:bg-slate-600/60"
             title="拖拽调整列宽"
             @pointerdown="onDown('name', $event)"
-            @pointermove="onMove"
-            @pointerup="onUp"
-            @pointercancel="onUp"
-          ></span>
-        </span>
-        <span class="relative text-right">
-          目标日期
-          <span
-            class="absolute -right-1 top-0 h-full w-2 cursor-col-resize hover:bg-slate-600/60"
-            title="拖拽调整列宽"
-            @pointerdown="onDown('target', $event)"
             @pointermove="onMove"
             @pointerup="onUp"
             @pointercancel="onUp"
@@ -143,7 +143,7 @@ function menuRemove() {
         <EditableRow v-if="isEditing(row.item.id)" :style="gridStyle" />
         <div
           v-else
-          class="grid items-center gap-x-2 rounded px-1 py-1.5 hover:bg-slate-800/60"
+          class="grid items-center gap-x-2 rounded px-1 py-1.5 text-center hover:bg-slate-800/60"
           :style="gridStyle"
           :class="
             row.state === 'expired'
@@ -154,15 +154,15 @@ function menuRemove() {
           "
           @contextmenu.prevent="openMenu($event, row.item)"
         >
-          <span class="text-right text-xs font-medium">{{ formatDays(row.days) }}</span>
+          <span class="text-xs font-medium">{{ formatDays(row.days) }}</span>
+          <span class="text-xs text-slate-400">{{ row.item.target_date }}</span>
           <span class="truncate text-sm" :title="row.item.title">{{ row.item.title }}</span>
-          <span class="text-right text-xs text-slate-400">{{ row.item.target_date }}</span>
           <span class="truncate text-xs text-slate-500" :title="row.item.note ?? ''">
             {{ row.item.note }}
           </span>
         </div>
       </template>
-      <!-- 新增草稿行：固定显示在最后，保存后随列表按剩余重排 -->
+      <!-- 新增草稿行：固定显示在最后，保存后随列表按倒计时重排 -->
       <EditableRow v-if="editing?.mode === 'add'" :style="gridStyle" />
     </div>
 

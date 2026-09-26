@@ -22,12 +22,12 @@ fn column_widths_sanitized_clamps() {
     let w = ColumnWidths {
         name: 10,
         target: 100,
-        remaining: 1000,
+        countdown: 1000,
         note: 100,
     }
     .sanitized();
     assert_eq!(w.name, 24);
-    assert_eq!(w.remaining, 400);
+    assert_eq!(w.countdown, 400);
     assert_eq!(w.target, 100);
 }
 

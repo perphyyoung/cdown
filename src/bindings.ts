@@ -18,7 +18,8 @@ export type ColumnWidths = {
 	/**  各列宽度（px），可拖拽调整；默认值适配 320px 初始窗口，clamp 范围见 sanitized() */
 	name?: number,
 	target?: number,
-	remaining?: number,
+	/**  倒计时列 */
+	countdown?: number,
 	note?: number,
 };
 

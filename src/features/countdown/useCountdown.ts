@@ -12,7 +12,7 @@ export interface FormValue {
 export interface ColumnWidths {
   name: number;
   target: number;
-  remaining: number;
+  countdown: number;
   note: number;
 }
 
@@ -31,7 +31,7 @@ interface SettingsView {
 }
 
 // bindings 里字段因 Rust 侧 serde(default) 导出为可选，读取前先归一化
-const DEFAULT_WIDTHS: ColumnWidths = { name: 92, target: 70, remaining: 52, note: 50 };
+const DEFAULT_WIDTHS: ColumnWidths = { name: 92, target: 70, countdown: 52, note: 50 };
 
 function normalizeSettings(cfg: Settings): SettingsView {
   const w = cfg.column_widths ?? {};
@@ -40,7 +40,7 @@ function normalizeSettings(cfg: Settings): SettingsView {
     column_widths: {
       name: w.name ?? DEFAULT_WIDTHS.name,
       target: w.target ?? DEFAULT_WIDTHS.target,
-      remaining: w.remaining ?? DEFAULT_WIDTHS.remaining,
+      countdown: w.countdown ?? DEFAULT_WIDTHS.countdown,
       note: w.note ?? DEFAULT_WIDTHS.note,
     },
   };
