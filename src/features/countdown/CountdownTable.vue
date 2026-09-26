@@ -56,8 +56,14 @@ function isEditing(id: string) {
   return editing.value?.mode === "edit" && editing.value.id === id;
 }
 
-// 行右键菜单：全应用唯一的右键入口（默认菜单已在 main.ts 全局禁用）
-const menu = ref<{ x: number; y: number; item: CountdownItem } | null>(null);
+// 行右键菜单：全应用唯一的右键入口（默认菜单已在 main.ts 全局禁用）。
+// 删除需二次确认：第一次点「删除」只切换为确认态。
+const menu = ref<{
+  x: number;
+  y: number;
+  item: CountdownItem;
+  confirming: boolean;
+} | null>(null);
 
 function openMenu(e: MouseEvent, item: CountdownItem) {
   const mw = 96;
@@ -66,6 +72,7 @@ function openMenu(e: MouseEvent, item: CountdownItem) {
     x: Math.min(e.clientX, window.innerWidth - mw - 4),
     y: Math.min(e.clientY, window.innerHeight - mh - 4),
     item,
+    confirming: false,
   };
 }
 function closeMenu() {
@@ -76,7 +83,12 @@ function menuEdit() {
   closeMenu();
 }
 function menuRemove() {
-  if (menu.value) emit("remove", menu.value.item.id);
+  if (!menu.value) return;
+  if (!menu.value.confirming) {
+    menu.value.confirming = true;
+    return;
+  }
+  emit("remove", menu.value.item.id);
   closeMenu();
 }
 </script>
@@ -180,10 +192,11 @@ function menuRemove() {
           编辑
         </button>
         <button
-          class="block w-full px-3 py-1.5 text-left text-red-300 hover:bg-slate-700"
+          class="block w-full px-3 py-1.5 text-left hover:bg-slate-700"
+          :class="menu.confirming ? 'bg-red-900/60 text-red-200' : 'text-red-300'"
           @click="menuRemove()"
         >
-          删除
+          {{ menu.confirming ? "确认删除？" : "删除" }}
         </button>
       </div>
     </template>

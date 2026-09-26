@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { daysUntil, formatDays } from "./logic";
 import { countdownState } from "./useCountdown";
 
@@ -10,14 +10,33 @@ const daysLabel = computed(() => {
   const d = daysUntil(draft.value.targetDate, today.value);
   return Number.isNaN(d) ? "—" : formatDays(d);
 });
+
+const rowEl = ref<HTMLElement | null>(null);
+
+// 失焦自动保存：焦点移到行内其它输入框不触发
+function onBlur(e: FocusEvent) {
+  const next = e.relatedTarget as Node | null;
+  if (next && rowEl.value?.contains(next)) return;
+  void commitEdit();
+}
+
+// 点击非可聚焦区域（行外空白等）不会触发 blur，用 document 级 pointerdown 兜底
+function onDocPointerdown(e: PointerEvent) {
+  if (rowEl.value && !rowEl.value.contains(e.target as Node)) void commitEdit();
+}
+
+onMounted(() => document.addEventListener("pointerdown", onDocPointerdown, true));
+onUnmounted(() => document.removeEventListener("pointerdown", onDocPointerdown, true));
 </script>
 
 <template>
   <div
+    ref="rowEl"
     class="grid items-center gap-x-2 rounded bg-slate-800/40 px-1 py-1 text-center"
     title="回车保存，Esc 取消"
     @keydown.enter.prevent="commitEdit()"
     @keydown.esc="cancelEdit()"
+    @focusout="onBlur"
   >
     <span class="text-xs font-medium text-slate-400">{{ daysLabel }}</span>
     <input

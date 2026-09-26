@@ -131,7 +131,8 @@ async function commitEdit() {
   try {
     if (target.mode === "add") await addItem(value);
     else await updateItem(target.id, value);
-    editing.value = null;
+    // 仅当仍是本次提交的编辑目标时才退出编辑态（失焦保存与「＋」新建可能竞态）
+    if (editing.value === target) editing.value = null;
   } catch (e) {
     error.value = String(e);
   }
