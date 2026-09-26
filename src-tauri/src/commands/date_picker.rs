@@ -50,7 +50,7 @@ pub async fn open_date_picker_inner(
     let win =
         WebviewWindowBuilder::new(app, DATE_PICKER_LABEL, WebviewUrl::App("index.html".into()))
             .title("选择日期")
-            .inner_size(240.0, 236.0)
+            .inner_size(240.0, 264.0)
             .decorations(false)
             .resizable(false)
             .always_on_top(true)

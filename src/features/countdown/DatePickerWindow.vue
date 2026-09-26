@@ -30,10 +30,16 @@ async function onPick(v: Date | null) {
   await emit("date-picked", toIso(v));
   await commands.closeDatePicker();
 }
+
+// 「今天」= 定位视图并写入草稿，但保持弹窗打开，便于继续调整其它日期
+async function pickToday() {
+  value.value = new Date();
+  await emit("date-picked", toIso(value.value));
+}
 </script>
 
 <template>
-  <div class="h-screen overflow-hidden bg-slate-800 p-1">
+  <div class="flex h-screen flex-col overflow-hidden bg-slate-800 p-1">
     <VueDatePicker
       v-model="value"
       inline
@@ -44,5 +50,11 @@ async function onPick(v: Date | null) {
       :formats="{ month: 'MM' }"
       @update:model-value="onPick"
     />
+    <button
+      class="mt-1 w-full rounded bg-slate-700 py-1 text-xs text-slate-100 hover:bg-slate-600"
+      @click="pickToday"
+    >
+      今天
+    </button>
   </div>
 </template>
