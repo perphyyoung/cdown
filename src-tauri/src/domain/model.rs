@@ -76,6 +76,15 @@ fn default_levels() -> Vec<UrgencyLevel> {
     ]
 }
 
+/// 主窗口几何（物理像素）；由后端跟踪保存，前端设置保存不携带此字段
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, specta::Type)]
+pub struct WindowGeometry {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, specta::Type)]
 pub struct Settings {
     /// 紧急度分级：按阈值降序存储；过期固定红色，不在此列

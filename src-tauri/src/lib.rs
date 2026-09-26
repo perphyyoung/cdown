@@ -70,6 +70,17 @@ pub fn run() {
     export_bindings(&specta_builder);
 
     tauri::Builder::default()
+        .plugin(
+            // 官方窗口状态插件：窗口创建时自动恢复上次尺寸/位置，退出时自动保存。
+            // 排除 VISIBLE：主窗口常隐藏到托盘，可见性不参与持久化（否则托盘态退出后
+            // 下次启动窗口不显示）。
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(
+                    tauri_plugin_window_state::StateFlags::all()
+                        & !tauri_plugin_window_state::StateFlags::VISIBLE,
+                )
+                .build(),
+        )
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app| {
             specta_builder.mount_events(app);
@@ -79,7 +90,6 @@ pub fn run() {
             std::fs::create_dir_all(&config_dir)?;
             app.manage(infra::store::Store::new(config_dir.join("cdown.json")));
             app.manage(commands::date_picker::DatePickerPayload::default());
-
             // 原生文件对话框（设置页的导出/导入选路径用）
             app.handle().plugin(tauri_plugin_dialog::init())?;
 
@@ -140,7 +150,12 @@ pub fn run() {
                                 }
                             });
                         }
-                        "quit" => app.exit(0),
+                        "quit" => {
+                            // 退出前显式保存窗口状态（插件在应用退出时也会自动保存）
+                            use tauri_plugin_window_state::{AppHandleExt, StateFlags};
+                            let _ = app.save_window_state(StateFlags::all() & !StateFlags::VISIBLE);
+                            app.exit(0);
+                        }
                         _ => {}
                     })
                     .on_tray_icon_event(|tray, event| {
@@ -166,6 +181,10 @@ pub fn run() {
                     })
                     .build(app)?;
             }
+
+            // 主窗口配置为 visible:false（避免几何恢复前的尺寸闪变），此处亮相
+            let main_window = app.get_webview_window("main").expect("主窗口不存在");
+            let _ = main_window.show();
 
             // 日志插件仅 debug 构建注册（终端输出）；应用日志量小，release 不落盘
             if cfg!(debug_assertions) {

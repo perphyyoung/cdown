@@ -72,6 +72,8 @@ struct Settings { red_threshold_days: u32 }   // 默认 3
 
 存储：`infra/store.rs` 读写 `<app_config_dir>/cdown.json`（serde_json，写入用临时文件+rename 防写坏）。目标日期存 `YYYY-MM-DD` 字符串，Rust 侧用 `chrono::NaiveDate` 校验。
 
+主窗口几何（尺寸/位置）由官方 `tauri-plugin-window-state` 插件持久化与启动自动恢复（状态标志排除 VISIBLE——主窗口常隐藏到托盘，可见性不参与持久化；托盘退出前显式保存一次兜底）。几何与显示器绑定，**不参与设置的导入/导出**。
+
 ## 6. 倒计时与变红逻辑（前端纯函数，vitest 覆盖）
 
 - `src/features/countdown/logic.ts`（以「本地日期字符串 YYYY-MM-DD」为入参，可测、无时钟依赖）：
