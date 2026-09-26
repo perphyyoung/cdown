@@ -169,7 +169,13 @@ export function countdownState() {
           const { state, color } = rowState(days, settings.value.levels);
           return { item, days, state, color };
         })
-        .sort((a, b) => a.days - b.days),
+        // 过期行放最下面，其余按剩余天数升序
+        .sort((a, b) => {
+          const aExp = a.days < 0;
+          const bExp = b.days < 0;
+          if (aExp !== bExp) return aExp ? 1 : -1;
+          return a.days - b.days;
+        }),
     ),
     reload,
     addItem,

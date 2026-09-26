@@ -77,7 +77,8 @@ struct Settings { red_threshold_days: u32 }   // 默认 3
   - `rowState(days, levels) -> { state: normal | level | expired, color? }`：`days < 0` → expired；命中「满足 `days ≤ 阈值` 的级别中阈值最小（最紧急）的一级」→ level（返回该级颜色）；否则 normal。分级结构 `UrgencyLevel { threshold_days, color }`，后端归一化（去重/降序/上限 6/非法颜色回落）。
   - `formatDays(days) -> string`：`已过期 N 天` / `今天` / `明天` / `N 天`。
 - **资源占用口径**：精度到天，天与天的分界在午夜——常规 setInterval 每分钟重算一次已远超需要且开销可忽略（纯字符串日期差，无 DOM 重排）；窗口隐藏（`visibilitychange`）时暂停 tick，恢复可见时立即重算一次。
-- 变红/着色：`level` 行内联样式采用该级自定义颜色；`expired` 行固定红色弱化。
+- 变红/着色：整行统一颜色——`level` 行内联样式采用该级自定义颜色，`expired` 行固定红色弱化，`normal` 行默认色；备注列与其它列同色同字号，不做弱化。
+- 排序：非过期行按剩余天数升序，过期行统一放最后。
 - 阈值天数是全局设置（默认 3），在组件内小表单可改；如需按行覆盖再加 `item.red_threshold_days?: number`。
 
 ## 7. 目录结构

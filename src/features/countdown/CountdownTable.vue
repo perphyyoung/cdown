@@ -171,9 +171,9 @@ function confirmRemove() {
           @contextmenu.prevent="openMenu($event, row.item)"
         >
           <span class="text-xs font-medium">{{ formatDays(row.days) }}</span>
-          <span class="text-xs text-slate-400">{{ row.item.target_date }}</span>
+          <span class="text-xs">{{ row.item.target_date }}</span>
           <span class="truncate text-sm" :title="row.item.title">{{ row.item.title }}</span>
-          <span class="truncate text-xs text-slate-500" :title="row.item.note ?? ''">
+          <span class="truncate text-sm" :title="row.item.note ?? ''">
             {{ row.item.note }}
           </span>
         </div>
