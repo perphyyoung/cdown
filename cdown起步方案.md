@@ -2,8 +2,9 @@
 
 ## 1. 定位
 
-- 常驻桌面的小窗口小组件：以表格样式列出倒计时项（名称、目标时间、剩余时间）。
-- 支持自定义「变红时间」（临近阈值天数），默认 3 天：剩余时间 ≤ 阈值时该行变红；已过期单独样式。
+- 常驻桌面的小窗口小组件：以表格样式列出倒计时项（名称、目标日期、剩余天数）。
+- 支持自定义「变红时间」（临近阈值天数），默认 3 天：剩余天数 ≤ 阈值时该行变红；已过期单独样式。
+- **低资源占用**：时间精度到天即可，不做秒级计时；刷新频率压到最低（见 §6），无路由、单窗口、依赖从简。
 - 按《tauri2项目起步指南》起步，依赖按需引入（见 §3 取舍表）。
 
 ## 2. 技术栈
@@ -23,7 +24,7 @@
 保留（指南「建议统一」项）：
 
 - pnpm pin（`packageManager`）、版本单一事实源（`tauri.conf.json` 的 `version: "../package.json"`）
-- Rust 分层 `commands/` `domain/` `infra/`、根 `Cargo.toml` workspace + `[profile.release]` 体积优化
+- Rust 分层 `commands.rs`+`commands/`、`domain.rs`+`domain/`、`infra.rs`+`infra/`（同名文件放子模块声明，**不用 mod.rs**；测试平铺 `<源文件>.test.rs`）、根 `Cargo.toml` workspace + `[profile.release]` 体积优化
 - 共享 `CARGO_TARGET_DIR`（沿用 `D:\cargo-shared-target`），脚本一律读环境变量
 - specta_builder + 两条导出路径（`CDOWN_EXPORT_BINDINGS` 导出即退 / debug 启动自动导出）+ `scripts/gen-bindings.mjs`
 - `removeUnusedCommands` + capabilities 精确清单、生产严格 CSP + `devCsp` 放宽
@@ -55,24 +56,27 @@
 
 ```rust
 // domain/model.rs
-struct CountdownItem { id: String, title: String, target: String /* RFC3339 */, note: Option<String>, created_at: String }
+struct CountdownItem { id: String, title: String, target_date: String /* "YYYY-MM-DD" */, note: Option<String>, created_at: String }
 struct Settings { red_threshold_days: u32 }   // 默认 3
 ```
 
 命令（specta 登记一次，导出 TS 类型）：
 
 - `list_items() -> Vec<CountdownItem>`
-- `add_item(title, target, note?) -> CountdownItem`
-- `update_item(id, title, target, note?)` / `delete_item(id)`
+- `add_item(title, target_date, note?) -> CountdownItem`
+- `update_item(id, title, target_date, note?)` / `delete_item(id)`
 - `get_settings() -> Settings` / `set_settings(red_threshold_days)`
 
-存储：`infra/store.rs` 读写 `<app_config_dir>/cdown.json`（serde_json，写入用临时文件+rename 防写坏）。
+存储：`infra/store.rs` 读写 `<app_config_dir>/cdown.json`（serde_json，写入用临时文件+rename 防写坏）。目标日期存 `YYYY-MM-DD` 字符串，Rust 侧用 `chrono::NaiveDate` 校验。
 
-## 6. 变红逻辑（前端纯函数，vitest 覆盖）
+## 6. 倒计时与变红逻辑（前端纯函数，vitest 覆盖）
 
-- `src/features/countdown/logic.ts`：`remaining(target, now)`、`rowState(remaining, thresholdDays)` → `normal | soon | expired`。
-- `soon`：`0 < remaining ≤ thresholdDays × 24h` → 红色；`expired`：`remaining ≤ 0` → 红色加弱化/「已过期」标记。
-- 显示格式：阈值内 `X 天 HH:MM:SS`（每秒 tick）；阈值外 `X 天`（每分钟刷新足够，但一期统一每秒 tick，量小）。
+- `src/features/countdown/logic.ts`（以「本地日期字符串 YYYY-MM-DD」为入参，可测、无时钟依赖）：
+  - `daysUntil(targetDate, today) -> number`：目标日期 − 今天的天数差。
+  - `rowState(days, thresholdDays) -> normal | soon | expired`：`days < 0` → expired；`days ≤ thresholdDays` → soon（含当天，`days = 0`）；否则 normal。
+  - `formatDays(days) -> string`：`已过期 N 天` / `今天` / `明天` / `N 天`。
+- **资源占用口径**：精度到天，天与天的分界在午夜——常规 setInterval 每分钟重算一次已远超需要且开销可忽略（纯字符串日期差，无 DOM 重排）；窗口隐藏（`visibilitychange`）时暂停 tick，恢复可见时立即重算一次。
+- 变红：`soon` 行红色；`expired` 行红色加弱化/「已过期」标记。
 - 阈值天数是全局设置（默认 3），在组件内小表单可改；如需按行覆盖再加 `item.red_threshold_days?: number`。
 
 ## 7. 目录结构
@@ -91,18 +95,18 @@ cdown/
       useCountdown.ts  logic.ts  logic.test.ts
   src-tauri/
     tauri.conf.json  capabilities/default.json  icons/
-    src/
+    src/                     # 同名 .rs + 同名目录组织子模块，不用 mod.rs
       lib.rs  main.rs
-      commands/{items.rs, settings.rs}
-      domain/model.rs
-      infra/store.rs
+      commands.rs  commands/{items.rs, items.test.rs, settings.rs}
+      domain.rs    domain/{model.rs, model.test.rs, error.rs}
+      infra.rs     infra/{store.rs, store.test.rs}
 ```
 
 ## 8. 关键配置
 
-- `tauri.conf.json`：`productName: "cdown"`、`identifier: "com.cdown.widget"`（待定，见待确认项）、`version: "../package.json"`、`removeUnusedCommands: true`、bundle targets `["nsis"]`；CSP 同 paim 模式但去掉 `asset:` 相关指令，`devCsp` 放开 ws。
+- `tauri.conf.json`：`productName: "cdown"`、`identifier: "com.cdown.perphyyoung"`、`version: "../package.json"`、`removeUnusedCommands: true`、bundle targets `["nsis"]`；CSP 同 paim 模式但去掉 `asset:` 相关指令，`devCsp` 放开 ws。
 - `capabilities/default.json`（按实际调用逐条开）：
-  `core:window:allow-start-dragging`、`core:window:allow-hide`、`core:window:allow-show`、`core:window:allow-close`、（托盘菜单由 Rust 侧操作窗口，无需前端权限）。
+  `core:window:allow-start-dragging`、`core:window:allow-hide`（右上角隐藏按钮；托盘显示/退出由 Rust 侧操作窗口，无需前端权限）。
 - 环境变量前缀 `CDOWN_`：`CDOWN_EXPORT_BINDINGS`（导出即退）。数据目录用 `app_config_dir`，一期不需要重定向变量。
 - vite：端口 1420、`strictPort`、`@` alias、watch 白名单（index.html + src/ + public/）。
 
@@ -118,6 +122,6 @@ cdown/
 
 ## 10. 待确认
 
-1. `identifier`（反向域名，如 `com.cdown.widget` 或个人域名风格）。
+1. `identifier`（反向域名，如 `com.cdown.perphyyoung` 或个人域名风格）。
 2. 是否需要开机自启（影响是否一期就引 `tauri-plugin-autostart`）。
 3. 变红阈值做成全局设置即可，还是每行可单独覆盖（一期默认全局）。
