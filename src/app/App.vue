@@ -4,6 +4,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import CountdownTable from "@/features/countdown/CountdownTable.vue";
 import SettingsPage from "@/features/countdown/SettingsPage.vue";
+import DatePickerWindow from "@/features/countdown/DatePickerWindow.vue";
 import { commands } from "@/bindings";
 import {
   useCountdown,
@@ -24,8 +25,10 @@ const {
   cancelEdit,
 } = useCountdown();
 
-// 设置走独立窗口：同一段前端代码按窗口 label 区分渲染内容
-const isSettingsWindow = getCurrentWindow().label === "settings";
+// 多窗口共用同一份前端：按窗口 label 区分渲染内容
+const windowLabel = getCurrentWindow().label;
+const isSettingsWindow = windowLabel === "settings";
+const isDatePickerWindow = windowLabel === "date-picker";
 
 let unlisteners: UnlistenFn[] = [];
 // 设置窗口保存后广播，主窗口重拉设置
@@ -60,7 +63,8 @@ async function saveSettings(patch: { levels?: UrgencyLevel[]; columnWidths?: Col
 </script>
 
 <template>
-  <SettingsPage v-if="isSettingsWindow" />
+  <DatePickerWindow v-if="isDatePickerWindow" />
+  <SettingsPage v-else-if="isSettingsWindow" />
   <div v-else class="flex h-full select-none flex-col bg-slate-900 text-slate-100">
     <!-- 标题栏：无边框窗口拖动区 + 添加/设置/隐藏按钮 -->
     <header class="flex h-8 shrink-0 items-center pl-3" data-tauri-drag-region>

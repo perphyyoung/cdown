@@ -1,32 +1,25 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import { VueDatePicker } from "@vuepic/vue-datepicker";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { commands } from "@/bindings";
 import { daysUntil, formatDays, rowState } from "./logic";
 import { countdownState } from "./useCountdown";
 
 // 行内编辑行：新增草稿与修改既有行共用；倒计时列只读，随目标日期实时重算并按分级着色
-const { draft, today, settings, commitEdit, cancelEdit } = countdownState();
+const { draft, today, settings, error, commitEdit, cancelEdit } = countdownState();
 
 const days = computed(() => daysUntil(draft.value.targetDate, today.value));
 const preview = computed(() => rowState(days.value, settings.value.levels));
 
 const rowEl = ref<HTMLElement | null>(null);
+// 日期弹窗打开期间它持有焦点，会触发本行的 focusout/pointerdown —— 期间抑制自动提交，
+// 否则弹窗一开编辑行就退出，整个界面跳动
+const pickerOpen = ref(false);
 
-// 日期选择：v-model 用 Date，与 ISO 字符串互转；显示格式由 formats 固定 yyyy-MM-dd
-const pickerDate = computed<Date | null>({
-  get: () => {
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(draft.value.targetDate);
-    return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
-  },
-  set: (v) => {
-    draft.value.targetDate = v
-      ? `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, "0")}-${String(v.getDate()).padStart(2, "0")}`
-      : "";
-  },
-});
-
-// 失焦自动保存：焦点移到行内其它输入框不触发
+// 失焦自动保存：焦点移到行内其它输入框不触发；弹窗打开期间不触发
 function onBlur(e: FocusEvent) {
+  if (pickerOpen.value) return;
   const next = e.relatedTarget as Node | null;
   if (next && rowEl.value?.contains(next)) return;
   void commitEdit();
@@ -34,11 +27,41 @@ function onBlur(e: FocusEvent) {
 
 // 点击非可聚焦区域（行外空白等）不会触发 blur，用 document 级 pointerdown 兜底
 function onDocPointerdown(e: PointerEvent) {
+  if (pickerOpen.value) {
+    pickerOpen.value = false; // 弹窗已随之关闭，本次点击不提交，再点一次才提交
+    return;
+  }
   if (rowEl.value && !rowEl.value.contains(e.target as Node)) void commitEdit();
 }
 
 onMounted(() => document.addEventListener("pointerdown", onDocPointerdown, true));
 onUnmounted(() => document.removeEventListener("pointerdown", onDocPointerdown, true));
+
+// 日期弹窗：点击日期框在下方开独立日历窗口；选中经事件回写草稿
+let unlistenPicked: UnlistenFn | null = null;
+onMounted(async () => {
+  unlistenPicked = await listen<string>("date-picked", (e) => {
+    draft.value.targetDate = e.payload;
+    pickerOpen.value = false;
+  });
+});
+onUnmounted(() => unlistenPicked?.());
+
+async function openDatePicker(e: MouseEvent) {
+  pickerOpen.value = true;
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  const win = getCurrentWindow();
+  const pos = (await win.outerPosition()).toLogical(await win.scaleFactor());
+  try {
+    await commands.openDatePicker(
+      pos.x + rect.left,
+      pos.y + rect.bottom + 4,
+      draft.value.targetDate || null,
+    );
+  } catch (err) {
+    error.value = String(err);
+  }
+}
 </script>
 
 <template>
@@ -57,17 +80,14 @@ onUnmounted(() => document.removeEventListener("pointerdown", onDocPointerdown, 
     >
       {{ Number.isNaN(days) ? "—" : formatDays(days) }}
     </span>
-    <VueDatePicker
-      v-model="pickerDate"
-      :formats="{ input: 'yyyy-MM-dd', month: 'MM' }"
-      :enable-time-picker="false"
-      auto-apply
-      :clearable="false"
-      hide-input-icon
-      dark
-      position="left"
+    <input
+      v-model="draft.targetDate"
+      type="text"
+      inputmode="numeric"
+      maxlength="10"
       placeholder="YYYY-MM-DD"
-      class="min-w-0"
+      class="min-w-0 rounded bg-slate-900/70 px-1.5 py-0.5 text-center text-xs text-slate-100 outline-none ring-1 ring-slate-700 focus:ring-slate-500 placeholder:text-slate-500"
+      @click="openDatePicker"
     />
     <input
       v-model="draft.title"
