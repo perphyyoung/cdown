@@ -72,6 +72,7 @@ async function saveSettings(patch: { levels?: UrgencyLevel[]; columnWidths?: Col
   <div v-else class="flex h-full select-none flex-col bg-slate-900 text-slate-100">
     <!-- 标题栏：无边框窗口拖动区 + 添加/设置/隐藏按钮 -->
     <header class="relative flex h-8 shrink-0 items-center" data-tauri-drag-region>
+      <img src="/icon.png" alt="cdown" class="ml-2 h-4 w-4 select-none" draggable="false" />
       <span
         class="absolute left-1/2 -translate-x-1/2 text-xs font-semibold tracking-wide text-slate-400"
         data-tauri-drag-region
