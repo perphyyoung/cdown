@@ -6,6 +6,7 @@ import CountdownTable from "@/features/countdown/CountdownTable.vue";
 import SettingsPage from "@/features/countdown/SettingsPage.vue";
 import DatePickerWindow from "@/features/countdown/DatePickerWindow.vue";
 import { commands } from "@/bindings";
+import { log } from "@/utils/logger";
 import {
   useCountdown,
   type ColumnWidths,
@@ -27,6 +28,7 @@ const {
 
 // 多窗口共用同一份前端：按窗口 label 区分渲染内容
 const windowLabel = getCurrentWindow().label;
+log.info("[App] mounted, window =", windowLabel);
 const isSettingsWindow = windowLabel === "settings";
 const isDatePickerWindow = windowLabel === "date-picker";
 
@@ -49,6 +51,7 @@ async function onRemove(id: string) {
     const cur = editing.value;
     if (cur?.mode === "edit" && cur.id === id) cancelEdit();
   } catch (e) {
+    log.error("[remove] 删除失败", String(e));
     error.value = String(e);
   }
 }
@@ -57,6 +60,7 @@ async function saveSettings(patch: { levels?: UrgencyLevel[]; columnWidths?: Col
   try {
     await persistSettings(patch);
   } catch (e) {
+    log.error("[settings] 保存失败", String(e));
     error.value = String(e);
   }
 }

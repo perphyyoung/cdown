@@ -8,6 +8,7 @@ use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::model::{CountdownItem, Settings};
+use crate::log_warn;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct StoreData {
@@ -68,7 +69,7 @@ impl Store {
                 // 备份损坏文件，避免被下次写入覆盖掉现场
                 let bak = self.path.with_extension("json.bak");
                 let _ = fs::rename(&self.path, &bak);
-                log::warn!("cdown.json 解析失败（已备份到 {}）：{e}", bak.display());
+                log_warn!("cdown.json 解析失败（已备份到 {}）：{e}", bak.display());
                 Ok(StoreData::default())
             }
         }

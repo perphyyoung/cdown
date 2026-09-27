@@ -14,6 +14,9 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         .dangerously_cast_bigints_to_number()
         // 错误走 Promise reject（bindings 返回 Promise<T>），前端 try/catch 即可
         .error_handling(tauri_specta::ErrorHandlingMode::Throw)
+        .events(tauri_specta::collect_events![
+            infra::logging::LogLevelChanged
+        ])
         .commands(tauri_specta::collect_commands![
             commands::items::list_items,
             commands::items::add_item,
@@ -29,6 +32,9 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::date_picker::open_date_picker,
             commands::date_picker::get_date_picker_payload,
             commands::date_picker::close_date_picker,
+            infra::logging::log_msg,
+            infra::logging::get_log_level,
+            infra::logging::set_log_level,
         ])
 }
 
@@ -68,6 +74,15 @@ pub fn run() {
     // debug 启动自动导出 bindings
     #[cfg(debug_assertions)]
     export_bindings(&specta_builder);
+
+    // 文件日志初始化（级别：CDOWN_LOG > cdown-config.toml > 内置默认）
+    infra::logging::init_from_config();
+    log_info!(
+        "cdown 启动（version {}，debug={}），日志级别 {}",
+        env!("PACKAGE_VERSION"),
+        cfg!(debug_assertions),
+        infra::logging::level_str()
+    );
 
     tauri::Builder::default()
         .plugin(

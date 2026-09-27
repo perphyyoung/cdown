@@ -5,6 +5,7 @@ import { LogicalSize } from "@tauri-apps/api/dpi";
 import { emit } from "@tauri-apps/api/event";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { commands } from "@/bindings";
+import { log } from "@/utils/logger";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
 import SettingsRow from "./SettingsRow.vue";
 import { countdownState } from "./useCountdown";
@@ -82,6 +83,7 @@ async function onThresholdChange(days: number) {
 type ExportKind = "items" | "settings";
 
 async function onExport(kind: ExportKind) {
+  log.info("[export] 开始导出", kind);
   try {
     const path = await save({
       defaultPath: `cdown-${kind}-${fileStamp()}.json`,
@@ -92,6 +94,7 @@ async function onExport(kind: ExportKind) {
     else await commands.exportSettings(path);
     msg.value = "已导出";
     error.value = "";
+    log.info("[export] 导出完成", kind);
   } catch (e) {
     error.value = String(e);
   }
@@ -105,6 +108,7 @@ async function doImport(kind: ExportKind, path: string) {
     await commands.importSettings(path);
     msg.value = "设置已导入";
   }
+  log.info("[import] 导入完成", kind);
   await reload();
   await emit("settings-changed", null);
   error.value = "";
@@ -122,6 +126,7 @@ async function onImport(kind: ExportKind) {
       confirmText: "导入",
     });
   } catch (e) {
+    log.error("[import] 导入失败", String(e));
     error.value = String(e);
   }
 }

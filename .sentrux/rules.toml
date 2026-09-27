@@ -44,10 +44,10 @@ name = "web-bindings"
 paths = ["src/bindings.ts"]
 order = 3
 
-# ---- 共享件(order 4):通用组件(ConfirmDialog 等),不依赖业务切片 ----
+# ---- 共享件(order 4):通用组件、logger 等 utils,不依赖业务切片 ----
 [[layers]]
 name = "web-components"
-paths = ["src/components/**"]
+paths = ["src/components/**", "src/utils/**"]
 order = 4
 
 # ---- 特征切片(order 5):countdown 业务模块,两端对齐 ----

@@ -35,7 +35,7 @@
 - `rusqlite` → JSON 文件；`vue-router` → 无此需求（`plugin-dialog` 一期为导出/导入引入，见下）
 - asset protocol（`protocol-asset` 特性）→ 无本地图片加载，CSP 相应简化
 - `tauri-plugin-global-shortcut` → 一期不做（二期可加热键显示/隐藏）
-- 自研 `infra/logging.rs` + 配置文件分级 → 一期仅 `tauri-plugin-log`（debug 构建终端输出），应用日志量小
+- `tauri-plugin-log` 仅保留 debug 终端输出；文件日志按 paim 引入自研 `infra/logging.rs`（`cdown.log` + `cdown-config.toml` 分级 + `CDOWN_LOG` 环境变量 + 前端 logger，见 日志使用说明.md）
 - Playwright e2e 骨架 → 二期（先抄 paim 的 fixture/CDP 模式）
 
 新增：
