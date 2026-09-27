@@ -127,7 +127,8 @@ async function saveSettings(patch: { levels?: UrgencyLevel[]; columnWidths?: Col
 }
 
 function startAdd() {
-  draft.value = { title: "", targetDate: "", note: null };
+  // 默认日期为当天：日历直接落在当前月，多数场景只需改名称
+  draft.value = { title: "", targetDate: today.value, note: null };
   editing.value = { mode: "add" };
 }
 

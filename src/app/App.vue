@@ -104,8 +104,18 @@ async function saveSettings(patch: { levels?: UrgencyLevel[]; columnWidths?: Col
       </span>
     </header>
 
-    <p v-if="error" class="mx-2 mb-1 rounded bg-red-900/50 px-2 py-1 text-xs text-red-200">
-      {{ error }}
+    <p
+      v-if="error"
+      class="mx-2 mb-1 flex items-center justify-between gap-2 rounded bg-red-900/50 px-2 py-1 text-xs text-red-200"
+    >
+      <span class="min-w-0 break-all">{{ error }}</span>
+      <button
+        class="shrink-0 px-1 text-red-200/70 hover:text-red-100"
+        title="关闭"
+        @click="error = ''"
+      >
+        ✕
+      </button>
     </p>
 
     <CountdownTable
