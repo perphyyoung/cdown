@@ -81,25 +81,25 @@ async function saveSettings(patch: { levels?: UrgencyLevel[]; columnWidths?: Col
       </span>
       <span class="ml-auto flex items-center" data-tauri-drag-region>
         <button
-          class="h-8 rounded px-2.5 text-slate-500 hover:bg-slate-800 hover:text-slate-100"
+          class="flex h-8 w-8 items-center justify-center rounded text-slate-500 hover:bg-slate-800 hover:text-slate-100"
           title="添加倒计时"
           @click="startAdd()"
         >
-          ＋
+          +
         </button>
         <button
-          class="h-8 rounded px-2.5 text-slate-500 hover:bg-slate-800 hover:text-slate-100"
+          class="flex h-8 w-8 items-center justify-center rounded text-slate-500 hover:bg-slate-800 hover:text-slate-100"
           title="设置"
           @click="openSettings()"
         >
           ⚙
         </button>
         <button
-          class="h-8 rounded px-2.5 text-slate-500 hover:bg-slate-800 hover:text-slate-100"
+          class="flex h-8 w-8 items-center justify-center rounded text-slate-500 hover:bg-slate-800 hover:text-slate-100"
           title="隐藏到托盘"
           @click="getCurrentWindow().hide()"
         >
-          —
+          −
         </button>
       </span>
     </header>
