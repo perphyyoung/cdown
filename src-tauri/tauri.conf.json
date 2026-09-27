@@ -17,7 +17,7 @@
         "title": "cdown",
         "width": 640,
         "height": 320,
-        "minWidth": 640,
+        "minWidth": 320,
         "minHeight": 240,
         "decorations": false,
         "visible": false,
