@@ -189,7 +189,9 @@ function confirmRemove() {
 
 <template>
   <main ref="mainEl" class="min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-auto px-2 pb-1">
-    <div class="min-w-max">
+    <!-- w-max 收缩为表格自然宽度 + mx-auto 左右居中：拖拽列宽时两侧间距始终相等；
+         总宽超出窗口时 margin auto 归零、从左溢出滚动，行为与占满时一致 -->
+    <div class="w-max mx-auto">
       <div
         class="grid items-center gap-x-2 border-b border-slate-800 px-1 py-1 text-center text-xs text-slate-500"
         :style="gridStyle"
