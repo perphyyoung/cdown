@@ -68,6 +68,7 @@ fn save_then_reload_keeps_settings() {
                     color: "#a78bfa".into(),
                 }],
                 column_widths: ColumnWidths::default(),
+                always_on_top: false,
             };
             Ok(())
         })
@@ -75,4 +76,6 @@ fn save_then_reload_keeps_settings() {
     let data = store.read().unwrap();
     assert_eq!(data.settings.levels.len(), 1);
     assert_eq!(data.settings.levels[0].threshold_days, 7);
+    // always_on_top 随设置整体持久化
+    assert!(!data.settings.always_on_top);
 }

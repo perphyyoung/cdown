@@ -51,7 +51,8 @@
 
 - 主窗口 label `main`：约 320×420，`decorations: false`，`alwaysOnTop: true`，`skipTaskbar: true`，可缩放（min/max 收窄）。
 - 无边框拖动：标题区放 `data-tauri-drag-region`（需 `core:window:allow-start-dragging` 权限）。
-- 自绘右上角小按钮：隐藏到托盘（`core:window:allow-hide`）。
+- 自绘右上角小按钮：添加（＋）、图钉（置顶开关）、设置（⚙）、隐藏到托盘（−）。
+- 主窗口置顶：偏好存 `Settings.always_on_top`（serde 缺省 true，旧数据自动默认置顶）；启动时 setup 读 Settings 应用，前端图钉按钮只改设置、watch 同步窗口实际状态（设置导入后经 `settings-changed` 同样生效），需 `core:window:allow-set-always-on-top` 权限。
 - 托盘菜单：显示/隐藏、设置、退出；「设置」与主面板 ⚙ 按钮都走 `open_settings` 命令（Rust 侧创建/唤起独立设置窗口，label `settings`，原生标题栏 + 置顶，方便对照主面板调样式；失败信息回传前端错误条）。同一段前端按**窗口 label** 分流渲染；设置保存后广播 `settings-changed`，主窗口重拉设置。
 - 一期不做透明背景（避免 macOS private api 分歧），用圆角 + 阴影即可。
 
@@ -60,7 +61,7 @@
 ```rust
 // domain/model.rs
 struct CountdownItem { id: String, title: String, target_date: String /* "YYYY-MM-DD" */, note: Option<String>, created_at: String }
-struct Settings { red_threshold_days: u32 }   // 默认 3
+struct Settings { levels: Vec<UrgencyLevel>, column_widths: ColumnWidths, always_on_top: bool }
 ```
 
 命令（specta 登记一次，导出 TS 类型）：
@@ -68,7 +69,7 @@ struct Settings { red_threshold_days: u32 }   // 默认 3
 - `list_items() -> Vec<CountdownItem>`
 - `add_item(title, target_date, note?) -> CountdownItem`
 - `update_item(id, title, target_date, note?)` / `delete_item(id)`
-- `get_settings() -> Settings` / `set_settings(red_threshold_days)`
+- `get_settings() -> Settings` / `set_settings(Settings)`
 
 存储：`infra/store.rs` 读写 `<app_config_dir>/cdown.json`（serde_json，写入用临时文件+rename 防写坏）。目标日期存 `YYYY-MM-DD` 字符串，Rust 侧用 `chrono::NaiveDate` 校验。
 
@@ -83,7 +84,7 @@ struct Settings { red_threshold_days: u32 }   // 默认 3
 - **资源占用口径**：精度到天，天与天的分界在午夜——常规 setInterval 每分钟重算一次已远超需要且开销可忽略（纯字符串日期差，无 DOM 重排）；窗口隐藏（`visibilitychange`）时暂停 tick，恢复可见时立即重算一次。
 - 变红/着色：整行统一颜色——`level` 行内联样式采用该级自定义颜色，`expired` 行固定红色弱化，`normal` 行默认色；备注列与其它列同色同字号，不做弱化。
 - 排序：非过期行按剩余天数升序，过期行统一放最后。
-- 阈值天数是全局设置（默认 3），在组件内小表单可改；如需按行覆盖再加 `item.red_threshold_days?: number`。
+- 紧急度分级是全局设置（默认 7/3/0 三级），在设置页配置；如需按行覆盖再加 `item.urgency_levels?: UrgencyLevel[]`。
 
 ## 7. 目录结构
 

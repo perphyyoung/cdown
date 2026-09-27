@@ -81,6 +81,8 @@ export type Settings = {
 	levels?: UrgencyLevel[],
 	/**  表格四列宽度（px） */
 	column_widths?: ColumnWidths,
+	/**  主窗口置顶（标题栏图钉切换）；旧数据缺字段按默认置顶处理 */
+	always_on_top?: boolean,
 };
 
 /**  紧急度分级：剩余天数 ≤ threshold_days 时该行采用 color 显示（含当天 days = 0）。 */

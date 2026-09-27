@@ -208,6 +208,14 @@ pub fn run() {
 
             // 主窗口配置为 visible:false（避免几何恢复前的尺寸闪变），此处亮相
             let main_window = app.get_webview_window("main").expect("主窗口不存在");
+            // 置顶偏好存 Settings（标题栏图钉切换），conf 的 alwaysOnTop:true 仅为
+            // 首次启动兜底；此处以 Settings 为准。读取失败按默认置顶处理（与 conf 一致）
+            let pinned = app
+                .state::<infra::store::Store>()
+                .read()
+                .map(|d| d.settings.always_on_top)
+                .unwrap_or(true);
+            let _ = main_window.set_always_on_top(pinned);
             let _ = main_window.show();
 
             // 日志插件仅 debug 构建注册（终端输出）；应用日志量小，release 不落盘

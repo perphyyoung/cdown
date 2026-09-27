@@ -59,6 +59,10 @@ pub struct UrgencyLevel {
 const MAX_LEVELS: usize = 6;
 const FALLBACK_COLOR: &str = "#fb923c";
 
+fn default_true() -> bool {
+    true
+}
+
 fn default_levels() -> Vec<UrgencyLevel> {
     vec![
         UrgencyLevel {
@@ -93,6 +97,9 @@ pub struct Settings {
     /// 表格四列宽度（px）
     #[serde(default)]
     pub column_widths: ColumnWidths,
+    /// 主窗口置顶（标题栏图钉切换）；旧数据缺字段按默认置顶处理
+    #[serde(default = "default_true")]
+    pub always_on_top: bool,
 }
 
 impl Default for Settings {
@@ -100,6 +107,7 @@ impl Default for Settings {
         Self {
             levels: default_levels(),
             column_widths: ColumnWidths::default(),
+            always_on_top: true,
         }
     }
 }

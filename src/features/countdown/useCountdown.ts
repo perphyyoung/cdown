@@ -35,6 +35,7 @@ export type EditTarget = { mode: "add" } | { mode: "edit"; id: string };
 interface SettingsView {
   levels: UrgencyLevel[];
   column_widths: ColumnWidths;
+  alwaysOnTop: boolean;
 }
 
 // bindings 里字段因 Rust 侧 serde(default) 导出为可选，读取前先归一化
@@ -55,6 +56,7 @@ function normalizeSettings(cfg: Settings): SettingsView {
       countdown: w.countdown ?? DEFAULT_WIDTHS.countdown,
       note: w.note ?? DEFAULT_WIDTHS.note,
     },
+    alwaysOnTop: cfg.always_on_top ?? true,
   };
 }
 
@@ -67,6 +69,7 @@ const settings = ref<SettingsView>({
     { thresholdDays: 0, color: "#fb923c" },
   ],
   column_widths: { ...DEFAULT_WIDTHS },
+  alwaysOnTop: true,
 });
 const today = ref(todayStr());
 const ready = ref(false);
@@ -114,7 +117,11 @@ async function deleteItem(id: string) {
   await reload();
 }
 
-async function saveSettings(patch: { levels?: UrgencyLevel[]; columnWidths?: ColumnWidths }) {
+async function saveSettings(patch: {
+  levels?: UrgencyLevel[];
+  columnWidths?: ColumnWidths;
+  alwaysOnTop?: boolean;
+}) {
   const next: Settings = {
     levels: (patch.levels ?? settings.value.levels).map((l) => ({
       threshold_days: l.thresholdDays,
@@ -122,6 +129,7 @@ async function saveSettings(patch: { levels?: UrgencyLevel[]; columnWidths?: Col
     })),
     // 列宽必须取整：后端 u32 不接受浮点（缩放屏拖拽会产生小数）
     column_widths: roundColumnWidths(patch.columnWidths ?? settings.value.column_widths),
+    always_on_top: patch.alwaysOnTop ?? settings.value.alwaysOnTop,
   };
   settings.value = normalizeSettings(await commands.setSettings(next));
 }

@@ -17,9 +17,11 @@ fn settings_default_is_three_levels() {
     assert_eq!(s.levels[1].color, "#facc15");
     assert_eq!(s.levels[2].threshold_days, 0);
     assert_eq!(s.levels[2].color, "#fb923c");
+    assert!(Settings::default().always_on_top);
     // 反序列化缺字段时也应回落到默认值（旧版/手改的 cdown.json 兼容）
     let s: Settings = serde_json::from_str("{}").unwrap();
     assert_eq!(s.levels, Settings::default().levels);
+    assert!(s.always_on_top);
 }
 
 #[test]
@@ -56,6 +58,7 @@ fn settings_normalized_sorts_dedupes_and_fixes_colors() {
             level(1, "#ffffff"),
         ],
         column_widths: ColumnWidths::default(),
+        always_on_top: true,
     }
     .normalized();
     let thresholds: Vec<u32> = s.levels.iter().map(|l| l.threshold_days).collect();
@@ -74,6 +77,7 @@ fn settings_normalized_caps_levels() {
     let s = Settings {
         levels,
         column_widths: ColumnWidths::default(),
+        always_on_top: true,
     }
     .normalized();
     assert_eq!(s.levels.len(), 6);

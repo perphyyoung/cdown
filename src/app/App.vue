@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onUnmounted } from "vue";
+import { onUnmounted, watch } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import CountdownTable from "@/features/countdown/CountdownTable.vue";
@@ -37,6 +37,21 @@ let unlisteners: UnlistenFn[] = [];
 void listen("settings-changed", () => void reload()).then((u) => (unlisteners = [u]));
 onUnmounted(() => unlisteners.forEach((u) => u()));
 
+// 置顶：单一数据源是 Settings——图钉按钮只改设置，此处 watch 把它同步到窗口
+// 实际状态（设置导入后经 settings-changed → reload 也会走到这里）。仅主窗口执行：
+// 设置/日历窗口共用本组件，否则会把它们自身的置顶状态改掉。
+if (windowLabel === "main") {
+  watch(
+    () => settings.value.alwaysOnTop,
+    (v) => void getCurrentWindow().setAlwaysOnTop(v),
+    { immediate: true },
+  );
+}
+
+async function togglePin() {
+  await saveSettings({ alwaysOnTop: !settings.value.alwaysOnTop });
+}
+
 async function openSettings() {
   try {
     await commands.openSettings();
@@ -56,7 +71,11 @@ async function onRemove(id: string) {
   }
 }
 
-async function saveSettings(patch: { levels?: UrgencyLevel[]; columnWidths?: ColumnWidths }) {
+async function saveSettings(patch: {
+  levels?: UrgencyLevel[];
+  columnWidths?: ColumnWidths;
+  alwaysOnTop?: boolean;
+}) {
   try {
     await persistSettings(patch);
   } catch (e) {
@@ -86,6 +105,29 @@ async function saveSettings(patch: { levels?: UrgencyLevel[]; columnWidths?: Col
           @click="startAdd()"
         >
           +
+        </button>
+        <button
+          class="flex h-8 w-8 items-center justify-center rounded hover:bg-slate-800"
+          :class="settings.alwaysOnTop ? 'text-slate-100' : 'text-slate-500 hover:text-slate-100'"
+          :title="settings.alwaysOnTop ? '取消置顶' : '置顶'"
+          @click="togglePin()"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <line x1="12" x2="12" y1="17" y2="22" />
+            <path
+              d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"
+            />
+          </svg>
         </button>
         <button
           class="flex h-8 w-8 items-center justify-center rounded text-slate-500 hover:bg-slate-800 hover:text-slate-100"
