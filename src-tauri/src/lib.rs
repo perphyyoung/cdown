@@ -85,20 +85,24 @@ pub fn run() {
     );
 
     tauri::Builder::default()
-        .plugin(
+        .plugin({
             // 官方窗口状态插件：窗口创建时自动恢复上次尺寸/位置，退出时自动保存。
             // 排除 VISIBLE：主窗口常隐藏到托盘，可见性不参与持久化（否则托盘态退出后
             // 下次启动窗口不显示）。
-            tauri_plugin_window_state::Builder::default()
-                .with_state_flags(
-                    tauri_plugin_window_state::StateFlags::all()
-                        & !tauri_plugin_window_state::StateFlags::VISIBLE
-                        // 边框形态由代码决定（主/设置窗口均无边框自绘），不参与持久化，
-                        // 否则插件会把旧的原生边框状态恢复回来
-                        & !tauri_plugin_window_state::StateFlags::DECORATIONS,
-                )
-                .build(),
-        )
+            let mut state = tauri_plugin_window_state::Builder::default().with_state_flags(
+                tauri_plugin_window_state::StateFlags::all()
+                    & !tauri_plugin_window_state::StateFlags::VISIBLE
+                    // 边框形态由代码决定（主/设置窗口均无边框自绘），不参与持久化，
+                    // 否则插件会把旧的原生边框状态恢复回来
+                    & !tauri_plugin_window_state::StateFlags::DECORATIONS,
+            );
+            // dev/release 状态文件分离：release 用插件默认名（带前置点，插件内硬编码），
+            // dev 单独命名，避免两边共享同一份窗口几何
+            if cfg!(debug_assertions) {
+                state = state.with_filename("window-state.dev.json");
+            }
+            state.build()
+        })
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app| {
             specta_builder.mount_events(app);
