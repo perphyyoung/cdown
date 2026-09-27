@@ -2,6 +2,7 @@
 import { computed, nextTick, reactive, ref, watch } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalSize } from "@tauri-apps/api/dpi";
+import { log } from "@/utils/logger";
 import { formatDays } from "./logic";
 import { countdownState, type ColumnWidths, type CountdownRow } from "./useCountdown";
 import type { CountdownItem } from "@/bindings";
@@ -76,7 +77,7 @@ function fitColumn(col: keyof ColumnWidths) {
 function fitAllColumns() {
   COLUMN_KEYS.forEach((c) => (local[c] = fittedWidth(c)));
   emitResize();
-  void fitWindowWidth();
+  fitWindowWidthSafe();
 }
 
 // 全部列自适应时，把主窗口宽度也调到刚好容纳整张表
@@ -87,6 +88,10 @@ async function fitWindowWidth() {
   const logical = outer.toLogical(await win.scaleFactor());
   if (Math.abs(logical.width - total) < 1) return;
   await win.setSize(new LogicalSize(Math.ceil(total), Math.round(logical.height)));
+}
+
+function fitWindowWidthSafe() {
+  fitWindowWidth().catch((e) => log.error("[fit-all] 调整窗口宽度失败", String(e)));
 }
 
 // 表头右键菜单
