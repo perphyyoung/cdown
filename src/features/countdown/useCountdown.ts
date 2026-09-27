@@ -141,14 +141,19 @@ function cancelEdit() {
   editing.value = null;
 }
 
+// 提交进行中标志：同一次点击会先后触发 pointerdown 兜底保存与 focusout 失焦保存，
+// addItem 又是异步 IPC——不加防重入会同一草稿创建两条相同记录
+let committing = false;
+
 async function commitEdit() {
   const target = editing.value;
-  if (!target) return;
+  if (!target || committing) return;
   const value = draft.value;
   if (value.title.trim() === "" || !/^\d{4}-\d{2}-\d{2}$/.test(value.targetDate)) {
     error.value = "名称不能为空，目标日期需为 YYYY-MM-DD";
     return;
   }
+  committing = true;
   try {
     if (target.mode === "add") await addItem(value);
     else await updateItem(target.id, value);
@@ -156,6 +161,8 @@ async function commitEdit() {
     if (editing.value === target) editing.value = null;
   } catch (e) {
     error.value = String(e);
+  } finally {
+    committing = false;
   }
 }
 
