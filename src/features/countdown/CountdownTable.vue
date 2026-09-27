@@ -25,15 +25,22 @@ watch(
   (w) => Object.assign(local, w),
 );
 
-let drag: { col: keyof ColumnWidths; startX: number; startW: number } | null = null;
+// inverted：左缘手柄，拖拽方向与宽度变化相反（向左拖 = 加宽）
+let drag: {
+  col: keyof ColumnWidths;
+  startX: number;
+  startW: number;
+  inverted?: boolean;
+} | null = null;
 
-function onDown(col: keyof ColumnWidths, e: PointerEvent) {
-  drag = { col, startX: e.clientX, startW: local[col] };
+function onDown(col: keyof ColumnWidths, e: PointerEvent, inverted = false) {
+  drag = { col, startX: e.clientX, startW: local[col], inverted };
   (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 }
 function onMove(e: PointerEvent) {
   if (!drag) return;
-  local[drag.col] = Math.round(Math.min(MAX, Math.max(MIN, drag.startW + e.clientX - drag.startX)));
+  const delta = drag.inverted ? drag.startX - e.clientX : e.clientX - drag.startX;
+  local[drag.col] = Math.round(Math.min(MAX, Math.max(MIN, drag.startW + delta)));
 }
 function onUp() {
   if (!drag) return;
@@ -192,6 +199,17 @@ function confirmRemove() {
           data-col="countdown"
           @contextmenu.prevent="openHeaderMenu($event, 'countdown')"
         >
+          <span
+            class="group/col absolute -left-1.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
+            title="拖拽调整列宽"
+            @pointerdown="onDown('countdown', $event, true)"
+            @pointermove="onMove"
+            @pointerup="onUp"
+            @pointercancel="onUp"
+            ><span
+              class="h-4 w-0.5 rounded-full bg-slate-600 transition-colors group-hover/col:bg-slate-300"
+            ></span
+          ></span>
           倒计时
           <span
             class="group/col absolute -right-1.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
