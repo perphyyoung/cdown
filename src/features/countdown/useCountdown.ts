@@ -1,6 +1,13 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { commands, type CountdownItem, type Settings } from "@/bindings";
-import { daysUntil, rowState, todayStr, type RowState, type UrgencyLevel } from "./logic";
+import {
+  daysUntil,
+  rowState,
+  roundColumnWidths,
+  todayStr,
+  type RowState,
+  type UrgencyLevel,
+} from "./logic";
 
 export type { UrgencyLevel };
 
@@ -10,13 +17,9 @@ export interface FormValue {
   note: string | null;
 }
 
-/** 表格四列宽度（px），可拖拽调整并持久化 */
-export interface ColumnWidths {
-  name: number;
-  target: number;
-  countdown: number;
-  note: number;
-}
+/** 表格四列宽度（px），可拖拽调整并持久化（类型与取整逻辑在 logic.ts） */
+import type { ColumnWidths } from "./logic";
+export type { ColumnWidths };
 
 export interface CountdownRow {
   item: CountdownItem;
@@ -117,7 +120,8 @@ async function saveSettings(patch: { levels?: UrgencyLevel[]; columnWidths?: Col
       threshold_days: l.thresholdDays,
       color: l.color,
     })),
-    column_widths: patch.columnWidths ?? settings.value.column_widths,
+    // 列宽必须取整：后端 u32 不接受浮点（缩放屏拖拽会产生小数）
+    column_widths: roundColumnWidths(patch.columnWidths ?? settings.value.column_widths),
   };
   settings.value = normalizeSettings(await commands.setSettings(next));
 }

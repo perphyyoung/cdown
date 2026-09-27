@@ -9,6 +9,28 @@ export interface UrgencyLevel {
 
 export type RowState = "normal" | "level" | "expired";
 
+/** 表格四列宽度（px）。跨 IPC 传给后端（u32）前必须取整，见 roundColumnWidths。 */
+export interface ColumnWidths {
+  name: number;
+  target: number;
+  countdown: number;
+  note: number;
+}
+
+/**
+ * 列宽取整：拖拽的 clientX 在缩放屏下带小数，直接传给后端 u32 会被拒
+ * （invalid type: floating point, expected u32）。NaN/空值回落 0（后端再 clamp）。
+ */
+export function roundColumnWidths(w: ColumnWidths): ColumnWidths {
+  const r = (v: number) => Math.round(Number(v) || 0);
+  return {
+    name: r(w.name),
+    target: r(w.target),
+    countdown: r(w.countdown),
+    note: r(w.note),
+  };
+}
+
 export interface RowStateResult {
   state: RowState;
   /** 仅 level 态有值 */

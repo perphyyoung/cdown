@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { daysUntil, formatDays, rowState, todayStr, type UrgencyLevel } from "./logic";
+import {
+  daysUntil,
+  formatDays,
+  roundColumnWidths,
+  rowState,
+  todayStr,
+  type UrgencyLevel,
+} from "./logic";
 
 describe("daysUntil", () => {
   it("同一天为 0", () => {
@@ -60,6 +67,28 @@ describe("rowState", () => {
   it("空分级时全部 normal（过期除外）", () => {
     expect(rowState(0, [])).toEqual({ state: "normal" });
     expect(rowState(-1, [])).toEqual({ state: "expired" });
+  });
+});
+
+describe("roundColumnWidths", () => {
+  it("小数取整（回归：IPC u32 拒绝浮点 83.1875）", () => {
+    expect(roundColumnWidths({ name: 83.1875, target: 70.5, countdown: 0.4, note: 12.6 })).toEqual({
+      name: 83,
+      target: 71,
+      countdown: 0,
+      note: 13,
+    });
+  });
+
+  it("非法值回落 0，合法值原样保留", () => {
+    expect(
+      roundColumnWidths({
+        name: NaN,
+        target: undefined as unknown as number,
+        countdown: 92,
+        note: 50,
+      }),
+    ).toEqual({ name: 0, target: 0, countdown: 92, note: 50 });
   });
 });
 

@@ -32,7 +32,7 @@ function onDown(col: keyof ColumnWidths, e: PointerEvent) {
 }
 function onMove(e: PointerEvent) {
   if (!drag) return;
-  local[drag.col] = Math.min(MAX, Math.max(MIN, drag.startW + e.clientX - drag.startX));
+  local[drag.col] = Math.round(Math.min(MAX, Math.max(MIN, drag.startW + e.clientX - drag.startX)));
 }
 function onUp() {
   if (!drag) return;
