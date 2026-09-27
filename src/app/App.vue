@@ -92,11 +92,12 @@ async function saveSettings(patch: {
     <!-- 标题栏：无边框窗口拖动区 + 添加/设置/隐藏按钮 -->
     <header class="relative flex h-8 shrink-0 items-center" data-tauri-drag-region>
       <img src="/icon.png" alt="cdown" class="ml-2 h-4 w-4 select-none" draggable="false" />
+      <!-- 标题居左：窄窗口（无倒计时行）下绝对居中会与右侧功能键重合 -->
       <span
-        class="absolute left-1/2 -translate-x-1/2 text-xs font-semibold tracking-wide text-slate-400"
+        class="ml-1.5 text-xs font-semibold tracking-wide text-slate-400"
         data-tauri-drag-region
       >
-        cdown 倒计时
+        cdown
       </span>
       <span class="ml-auto flex items-center" data-tauri-drag-region>
         <button
