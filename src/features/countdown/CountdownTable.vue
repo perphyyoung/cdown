@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from "vue";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { LogicalSize } from "@tauri-apps/api/dpi";
 import { formatDays } from "./logic";
 import { countdownState, type ColumnWidths, type CountdownRow } from "./useCountdown";
 import type { CountdownItem } from "@/bindings";
@@ -36,6 +38,80 @@ function onUp() {
   if (!drag) return;
   drag = null;
   emit("resize", { ...local });
+}
+
+// —— 列宽自适应（表头右键）——
+const COLUMN_KEYS = ["countdown", "target", "name", "note"] as const;
+const GAP = 8; // grid gap-x-2
+const ROW_PAD = 8; // 行 px-1
+const MAIN_PAD = 16; // 表格容器 px-2
+
+function emitResize() {
+  emit("resize", { ...local });
+}
+
+function measureColumn(col: keyof ColumnWidths): number {
+  let max = 0;
+  // scrollWidth 在盒子比内容宽时返回盒子自身宽度（导致只能加宽不能收窄），
+  // 故临时置为 max-content 量取文本自然宽度，量完立刻还原
+  mainEl.value?.querySelectorAll<HTMLElement>(`[data-col="${col}"]`).forEach((el) => {
+    const prev = el.style.width;
+    el.style.width = "max-content";
+    max = Math.max(max, el.getBoundingClientRect().width);
+    el.style.width = prev;
+  });
+  return max;
+}
+
+// 最长内容 + 列间距 + 余量，再夹到拖拽同款上下限
+function fittedWidth(col: keyof ColumnWidths): number {
+  return Math.min(MAX, Math.max(MIN, measureColumn(col) + GAP + 6));
+}
+
+function fitColumn(col: keyof ColumnWidths) {
+  local[col] = fittedWidth(col);
+  emitResize();
+}
+
+function fitAllColumns() {
+  COLUMN_KEYS.forEach((c) => (local[c] = fittedWidth(c)));
+  emitResize();
+  void fitWindowWidth();
+}
+
+// 全部列自适应时，把主窗口宽度也调到刚好容纳整张表
+async function fitWindowWidth() {
+  const total = COLUMN_KEYS.reduce((sum, c) => sum + local[c], 0) + GAP * 3 + ROW_PAD + MAIN_PAD;
+  const win = getCurrentWindow();
+  const outer = await win.outerSize();
+  const logical = outer.toLogical(await win.scaleFactor());
+  if (Math.abs(logical.width - total) < 1) return;
+  await win.setSize(new LogicalSize(Math.ceil(total), Math.round(logical.height)));
+}
+
+// 表头右键菜单
+const headerMenu = ref<{ x: number; y: number; col: keyof ColumnWidths } | null>(null);
+
+function openHeaderMenu(e: MouseEvent, col: keyof ColumnWidths) {
+  const mw = 168;
+  const mh = 76;
+  headerMenu.value = {
+    x: Math.min(e.clientX, window.innerWidth - mw - 4),
+    y: Math.min(e.clientY, window.innerHeight - mh - 4),
+    col,
+  };
+}
+function closeHeaderMenu() {
+  headerMenu.value = null;
+}
+function menuFitColumn() {
+  const col = headerMenu.value?.col;
+  closeHeaderMenu();
+  if (col) fitColumn(col);
+}
+function menuFitAll() {
+  closeHeaderMenu();
+  fitAllColumns();
 }
 
 // 列顺序：倒计时、目标日期、名称、备注
@@ -104,7 +180,11 @@ function confirmRemove() {
         class="grid items-center gap-x-2 border-b border-slate-800 px-1 py-1 text-center text-xs text-slate-500"
         :style="gridStyle"
       >
-        <span class="relative">
+        <span
+          class="relative"
+          data-col="countdown"
+          @contextmenu.prevent="openHeaderMenu($event, 'countdown')"
+        >
           倒计时
           <span
             class="group/col absolute -right-1.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
@@ -118,7 +198,11 @@ function confirmRemove() {
             ></span
           ></span>
         </span>
-        <span class="relative">
+        <span
+          class="relative"
+          data-col="target"
+          @contextmenu.prevent="openHeaderMenu($event, 'target')"
+        >
           目标日期
           <span
             class="group/col absolute -right-1.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
@@ -132,7 +216,11 @@ function confirmRemove() {
             ></span
           ></span>
         </span>
-        <span class="relative">
+        <span
+          class="relative"
+          data-col="name"
+          @contextmenu.prevent="openHeaderMenu($event, 'name')"
+        >
           名称
           <span
             class="group/col absolute -right-1.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
@@ -146,7 +234,11 @@ function confirmRemove() {
             ></span
           ></span>
         </span>
-        <span class="relative">
+        <span
+          class="relative"
+          data-col="note"
+          @contextmenu.prevent="openHeaderMenu($event, 'note')"
+        >
           备注
           <span
             class="group/col absolute -right-1.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
@@ -182,10 +274,12 @@ function confirmRemove() {
           "
           @contextmenu.prevent="openMenu($event, row.item)"
         >
-          <span class="text-xs font-medium">{{ formatDays(row.days) }}</span>
-          <span class="text-xs">{{ row.item.target_date }}</span>
-          <span class="truncate text-sm" :title="row.item.title">{{ row.item.title }}</span>
-          <span class="truncate text-sm" :title="row.item.note ?? ''">
+          <span class="text-xs font-medium" data-col="countdown">{{ formatDays(row.days) }}</span>
+          <span class="text-xs" data-col="target">{{ row.item.target_date }}</span>
+          <span class="truncate text-sm" data-col="name" :title="row.item.title">{{
+            row.item.title
+          }}</span>
+          <span class="truncate text-sm" data-col="note" :title="row.item.note ?? ''">
             {{ row.item.note }}
           </span>
         </div>
@@ -212,6 +306,32 @@ function confirmRemove() {
           @click="menuRemove()"
         >
           删除
+        </button>
+      </div>
+    </template>
+
+    <template v-if="headerMenu">
+      <!-- 透明遮罩：点击/右键任意处关闭菜单 -->
+      <div
+        class="fixed inset-0 z-40"
+        @pointerdown="closeHeaderMenu"
+        @contextmenu.prevent="closeHeaderMenu"
+      />
+      <div
+        class="fixed z-50 min-w-[168px] rounded bg-slate-800 py-1 text-xs shadow-xl shadow-black/40 ring-1 ring-slate-700"
+        :style="{ left: `${headerMenu.x}px`, top: `${headerMenu.y}px` }"
+      >
+        <button
+          class="block w-full px-3 py-1.5 text-left text-slate-200 hover:bg-slate-700"
+          @click="menuFitColumn()"
+        >
+          单列自适应
+        </button>
+        <button
+          class="block w-full px-3 py-1.5 text-left text-slate-200 hover:bg-slate-700"
+          @click="menuFitAll()"
+        >
+          全部列自适应
         </button>
       </div>
     </template>
