@@ -107,45 +107,57 @@ function confirmRemove() {
         <span class="relative">
           倒计时
           <span
-            class="absolute -right-1 top-0 h-full w-2 cursor-col-resize hover:bg-slate-600/60"
+            class="group/col absolute -right-1.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
             title="拖拽调整列宽"
             @pointerdown="onDown('countdown', $event)"
             @pointermove="onMove"
             @pointerup="onUp"
             @pointercancel="onUp"
+            ><span
+              class="h-4 w-0.5 rounded-full bg-slate-600 transition-colors group-hover/col:bg-slate-300"
+            ></span
           ></span>
         </span>
         <span class="relative">
           目标日期
           <span
-            class="absolute -right-1 top-0 h-full w-2 cursor-col-resize hover:bg-slate-600/60"
+            class="group/col absolute -right-1.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
             title="拖拽调整列宽"
             @pointerdown="onDown('target', $event)"
             @pointermove="onMove"
             @pointerup="onUp"
             @pointercancel="onUp"
+            ><span
+              class="h-4 w-0.5 rounded-full bg-slate-600 transition-colors group-hover/col:bg-slate-300"
+            ></span
           ></span>
         </span>
         <span class="relative">
           名称
           <span
-            class="absolute -right-1 top-0 h-full w-2 cursor-col-resize hover:bg-slate-600/60"
+            class="group/col absolute -right-1.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
             title="拖拽调整列宽"
             @pointerdown="onDown('name', $event)"
             @pointermove="onMove"
             @pointerup="onUp"
             @pointercancel="onUp"
+            ><span
+              class="h-4 w-0.5 rounded-full bg-slate-600 transition-colors group-hover/col:bg-slate-300"
+            ></span
           ></span>
         </span>
         <span class="relative">
           备注
           <span
-            class="absolute -right-1 top-0 h-full w-2 cursor-col-resize hover:bg-slate-600/60"
+            class="group/col absolute -right-1.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
             title="拖拽调整列宽"
             @pointerdown="onDown('note', $event)"
             @pointermove="onMove"
             @pointerup="onUp"
             @pointercancel="onUp"
+            ><span
+              class="h-4 w-0.5 rounded-full bg-slate-600 transition-colors group-hover/col:bg-slate-300"
+            ></span
           ></span>
         </span>
       </div>
