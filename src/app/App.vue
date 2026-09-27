@@ -71,32 +71,36 @@ async function saveSettings(patch: { levels?: UrgencyLevel[]; columnWidths?: Col
   <SettingsPage v-else-if="isSettingsWindow" />
   <div v-else class="flex h-full select-none flex-col bg-slate-900 text-slate-100">
     <!-- 标题栏：无边框窗口拖动区 + 添加/设置/隐藏按钮 -->
-    <header class="flex h-8 shrink-0 items-center pl-3" data-tauri-drag-region>
-      <span class="text-xs font-semibold tracking-wide text-slate-400" data-tauri-drag-region>
+    <header class="relative flex h-8 shrink-0 items-center" data-tauri-drag-region>
+      <span
+        class="absolute left-1/2 -translate-x-1/2 text-xs font-semibold tracking-wide text-slate-400"
+        data-tauri-drag-region
+      >
         cdown 倒计时
       </span>
-      <span class="flex-1" data-tauri-drag-region></span>
-      <button
-        class="h-8 rounded px-2.5 text-slate-500 hover:bg-slate-800 hover:text-slate-100"
-        title="添加倒计时"
-        @click="startAdd()"
-      >
-        ＋
-      </button>
-      <button
-        class="h-8 rounded px-2.5 text-slate-500 hover:bg-slate-800 hover:text-slate-100"
-        title="设置"
-        @click="openSettings()"
-      >
-        ⚙
-      </button>
-      <button
-        class="h-8 rounded px-2.5 text-slate-500 hover:bg-slate-800 hover:text-slate-100"
-        title="隐藏到托盘"
-        @click="getCurrentWindow().hide()"
-      >
-        —
-      </button>
+      <span class="ml-auto flex items-center" data-tauri-drag-region>
+        <button
+          class="h-8 rounded px-2.5 text-slate-500 hover:bg-slate-800 hover:text-slate-100"
+          title="添加倒计时"
+          @click="startAdd()"
+        >
+          ＋
+        </button>
+        <button
+          class="h-8 rounded px-2.5 text-slate-500 hover:bg-slate-800 hover:text-slate-100"
+          title="设置"
+          @click="openSettings()"
+        >
+          ⚙
+        </button>
+        <button
+          class="h-8 rounded px-2.5 text-slate-500 hover:bg-slate-800 hover:text-slate-100"
+          title="隐藏到托盘"
+          @click="getCurrentWindow().hide()"
+        >
+          —
+        </button>
+      </span>
     </header>
 
     <p v-if="error" class="mx-2 mb-1 rounded bg-red-900/50 px-2 py-1 text-xs text-red-200">

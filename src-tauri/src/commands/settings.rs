@@ -25,6 +25,7 @@ pub fn open_settings_window(app: &AppHandle) -> Result<(), CommandError> {
         )
         .title("cdown 设置")
         .inner_size(640.0, 280.0)
+        .decorations(false)
         .resizable(true)
         .always_on_top(true)
         .center()

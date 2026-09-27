@@ -92,7 +92,10 @@ pub fn run() {
             tauri_plugin_window_state::Builder::default()
                 .with_state_flags(
                     tauri_plugin_window_state::StateFlags::all()
-                        & !tauri_plugin_window_state::StateFlags::VISIBLE,
+                        & !tauri_plugin_window_state::StateFlags::VISIBLE
+                        // 边框形态由代码决定（主/设置窗口均无边框自绘），不参与持久化，
+                        // 否则插件会把旧的原生边框状态恢复回来
+                        & !tauri_plugin_window_state::StateFlags::DECORATIONS,
                 )
                 .build(),
         )
@@ -168,7 +171,9 @@ pub fn run() {
                         "quit" => {
                             // 退出前显式保存窗口状态（插件在应用退出时也会自动保存）
                             use tauri_plugin_window_state::{AppHandleExt, StateFlags};
-                            let _ = app.save_window_state(StateFlags::all() & !StateFlags::VISIBLE);
+                            let _ = app.save_window_state(
+                                StateFlags::all() & !StateFlags::VISIBLE & !StateFlags::DECORATIONS,
+                            );
                             app.exit(0);
                         }
                         _ => {}

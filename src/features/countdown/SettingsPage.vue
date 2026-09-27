@@ -14,6 +14,9 @@ import type { UrgencyLevel } from "./logic";
 // 独立设置窗口的根视图：与主窗口各自持有状态副本，保存后广播刷新
 const { settings, ready, error, reload, saveSettings } = countdownState();
 
+// 版本单一事实源 package.json（vite define 注入）
+const appVersion = __APP_VERSION__;
+
 const msg = ref("");
 // 自定义确认对话框（WebView2 下 window.confirm/alert 不可用，见 design.md）
 const confirmBox = ref<{
@@ -204,88 +207,107 @@ const btnSmCls =
 
 <template>
   <!-- 布局参考 paim SettingsView：每个设置项一行，左栏标题+副标题，右栏控件/按钮，行间分隔线 -->
-  <div v-if="ready" ref="rootEl" class="bg-slate-900 p-4 text-slate-100">
-    <dl class="divide-y divide-slate-700">
-      <div class="flex items-center justify-between gap-3 py-3">
-        <div class="min-w-0">
-          <dt class="flex items-center gap-2 text-slate-300">
-            紧急度分级
-            <button
-              :class="btnSmCls"
-              :disabled="settings.levels.length >= MAX_LEVELS"
-              @click="addLevel"
+  <div v-if="ready" ref="rootEl" class="bg-slate-900 text-slate-100">
+    <!-- 自绘标题栏（无边框窗口）：设置 | 版本居中 | 关闭 -->
+    <header class="relative flex h-8 shrink-0 items-center px-3" data-tauri-drag-region>
+      <span class="text-sm text-slate-300">设置</span>
+      <span
+        class="absolute left-1/2 -translate-x-1/2 text-xs text-slate-500"
+        data-tauri-drag-region
+      >
+        cdown v{{ appVersion }}
+      </span>
+      <button
+        class="ml-auto h-8 w-10 text-slate-500 hover:bg-slate-800 hover:text-slate-100"
+        title="关闭"
+        @click="getCurrentWindow().close()"
+      >
+        ✕
+      </button>
+    </header>
+    <div class="p-4">
+      <dl class="divide-y divide-slate-700">
+        <div class="flex items-center justify-between gap-3 py-3">
+          <div class="min-w-0">
+            <dt class="flex items-center gap-2 text-slate-300">
+              紧急度分级
+              <button
+                :class="btnSmCls"
+                :disabled="settings.levels.length >= MAX_LEVELS"
+                @click="addLevel"
+              >
+                ＋ 添加分级
+              </button>
+              <button :class="btnSmCls" @click="resetLevels">重置</button>
+            </dt>
+            <dd class="text-sm text-slate-500">
+              剩余天数 ≤ 级别天数时按该级颜色显示（天数小的优先，最紧急在最上面），最多
+              {{ MAX_LEVELS }} 级；过期固定红色，清空分级则全部正常色
+            </dd>
+          </div>
+          <div class="flex shrink-0 flex-col items-end gap-1.5">
+            <div
+              v-for="(lvl, i) in levelsAsc"
+              :key="lvl.thresholdDays"
+              class="flex items-center gap-1.5"
             >
-              ＋ 添加分级
-            </button>
-            <button :class="btnSmCls" @click="resetLevels">重置</button>
-          </dt>
-          <dd class="text-sm text-slate-500">
-            剩余天数 ≤ 级别天数时按该级颜色显示（天数小的优先，最紧急在最上面），最多
-            {{ MAX_LEVELS }} 级；过期固定红色，清空分级则全部正常色
-          </dd>
-        </div>
-        <div class="flex shrink-0 flex-col items-end gap-1.5">
-          <div
-            v-for="(lvl, i) in levelsAsc"
-            :key="lvl.thresholdDays"
-            class="flex items-center gap-1.5"
-          >
-            <SettingsRow
-              :model-value="lvl.thresholdDays"
-              :max="365"
-              @change="onLevelThreshold(i, $event)"
-            />
-            <span class="text-xs text-slate-500">天内</span>
-            <input
-              type="color"
-              :value="lvl.color"
-              class="h-7 w-10 cursor-pointer rounded bg-slate-800"
-              @change="onLevelColor(i, $event)"
-            />
-            <button
-              class="px-1 text-slate-500 hover:text-red-300"
-              title="删除该级"
-              @click="removeLevel(i)"
-            >
-              ✕
-            </button>
+              <SettingsRow
+                :model-value="lvl.thresholdDays"
+                :max="365"
+                @change="onLevelThreshold(i, $event)"
+              />
+              <span class="text-xs text-slate-500">天内</span>
+              <input
+                type="color"
+                :value="lvl.color"
+                class="h-7 w-10 cursor-pointer rounded bg-slate-800"
+                @change="onLevelColor(i, $event)"
+              />
+              <button
+                class="px-1 text-slate-500 hover:text-red-300"
+                title="删除该级"
+                @click="removeLevel(i)"
+              >
+                ✕
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="flex items-center justify-between gap-3 py-3">
-        <div class="min-w-0">
-          <dt class="text-slate-300">倒计时数据</dt>
-          <dd class="text-sm text-slate-500">
-            导出/导入全部倒计时项；导入为替换语义，只覆盖倒计时，设置不动
-          </dd>
+        <div class="flex items-center justify-between gap-3 py-3">
+          <div class="min-w-0">
+            <dt class="text-slate-300">倒计时数据</dt>
+            <dd class="text-sm text-slate-500">
+              导出/导入全部倒计时项；导入为替换语义，只覆盖倒计时，设置不动
+            </dd>
+          </div>
+          <div class="flex shrink-0 gap-2">
+            <button :class="btnCls" @click="onExport('items')">导出</button>
+            <button :class="btnCls" @click="onImport('items')">导入</button>
+          </div>
         </div>
-        <div class="flex shrink-0 gap-2">
-          <button :class="btnCls" @click="onExport('items')">导出</button>
-          <button :class="btnCls" @click="onImport('items')">导入</button>
-        </div>
-      </div>
 
-      <div class="flex items-center justify-between gap-3 py-3">
-        <div class="min-w-0">
-          <dt class="text-slate-300">设置备份</dt>
-          <dd class="text-sm text-slate-500">
-            导出/导入紧急度分级与列宽；导入为替换语义，只覆盖设置，倒计时不动
-          </dd>
+        <div class="flex items-center justify-between gap-3 py-3">
+          <div class="min-w-0">
+            <dt class="text-slate-300">设置备份</dt>
+            <dd class="text-sm text-slate-500">
+              导出/导入紧急度分级与列宽；导入为替换语义，只覆盖设置，倒计时不动
+            </dd>
+          </div>
+          <div class="flex shrink-0 gap-2">
+            <button :class="btnCls" @click="onExport('settings')">导出</button>
+            <button :class="btnCls" @click="onImport('settings')">导入</button>
+          </div>
         </div>
-        <div class="flex shrink-0 gap-2">
-          <button :class="btnCls" @click="onExport('settings')">导出</button>
-          <button :class="btnCls" @click="onImport('settings')">导入</button>
-        </div>
-      </div>
-    </dl>
+      </dl>
 
-    <p v-if="msg" class="mt-2 rounded bg-emerald-900/50 px-2 py-1 text-xs text-emerald-200">
-      {{ msg }}
-    </p>
-    <p v-if="error" class="mt-2 rounded bg-red-900/50 px-2 py-1 text-xs text-red-200">
-      {{ error }}
-    </p>
+      <p v-if="msg" class="mt-2 rounded bg-emerald-900/50 px-2 py-1 text-xs text-emerald-200">
+        {{ msg }}
+      </p>
+      <p v-if="error" class="mt-2 rounded bg-red-900/50 px-2 py-1 text-xs text-red-200">
+        {{ error }}
+      </p>
+    </div>
 
     <ConfirmDialog
       :open="confirmBox !== null"
