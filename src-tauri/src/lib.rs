@@ -103,10 +103,10 @@ pub fn run() {
         .setup(move |app| {
             specta_builder.mount_events(app);
 
-            // 存储初始化：<app_config_dir>/cdown.json
-            let config_dir = app.path().app_config_dir()?;
-            std::fs::create_dir_all(&config_dir)?;
-            app.manage(infra::store::Store::new(config_dir.join("cdown.json")));
+            // 存储初始化：数据目录分离（dev=<项目根>/cdown-data，release=<app_config_dir>）
+            let data_dir = infra::store::data_dir(app.handle());
+            std::fs::create_dir_all(&data_dir)?;
+            app.manage(infra::store::Store::new(data_dir.join("cdown.json")));
             app.manage(commands::date_picker::DatePickerPayload::default());
             // 原生文件对话框（设置页的导出/导入选路径用）
             app.handle().plugin(tauri_plugin_dialog::init())?;

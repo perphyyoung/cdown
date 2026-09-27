@@ -26,6 +26,35 @@ pub enum StoreError {
     Serde(#[from] serde_json::Error),
 }
 
+/// 数据目录基准（cdown.json 所在目录）：
+/// - 环境变量 `CDOWN_DATA_DIR` 优先（为 e2e/多实例隔离预留，非空才生效）；
+/// - 开发环境（debug）使用项目根下的 `cdown-data`（经 CARGO_MANIFEST_DIR 编译期
+///   定位，不依赖进程工作目录——tauri CLI 以 src-tauri 为 cwd 启动 exe）；
+/// - 部署环境使用应用配置目录（正式数据位置不变），与 dev 天然分离。
+pub fn data_dir(app: &tauri::AppHandle) -> PathBuf {
+    use tauri::Manager;
+    if let Ok(dir) = std::env::var("CDOWN_DATA_DIR") {
+        if !dir.is_empty() {
+            return PathBuf::from(dir);
+        }
+    }
+    if cfg!(debug_assertions) {
+        project_root().join("cdown-data")
+    } else {
+        app.path()
+            .app_config_dir()
+            .expect("failed to resolve app config dir")
+    }
+}
+
+/// 项目根目录（src-tauri 的上级），经 CARGO_MANIFEST_DIR 编译期定位。
+fn project_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| PathBuf::from("."))
+}
+
 pub struct Store {
     path: PathBuf,
     lock: Mutex<()>,

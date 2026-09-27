@@ -30,6 +30,7 @@ Tauri 2 倒计时桌面小组件：表格样式列出倒计时项，剩余天数
 | --- | --- | --- |
 | `CDOWN_EXPORT_BINDINGS` | 导出即退，供 `pnpm check` 复写 `src/bindings.ts` | debug |
 | `CDOWN_LOG` | 临时覆盖文件日志级别（debug/info/warn/error），见 日志使用说明.md | 不限 |
+| `CDOWN_DATA_DIR` | 数据目录重定向（dev 数据默认在项目根 `cdown-data/`，release 在应用配置目录），为 e2e/多实例隔离预留 | 不限 |
 
 ## 结构速记
 
@@ -40,4 +41,4 @@ Tauri 2 倒计时桌面小组件：表格样式列出倒计时项，剩余天数
   入口 `lib.rs` 的 `run()`。
 - 前端：`src/features/countdown/`（业务切片）+ `src/app/App.vue`；`logic.ts` 纯函数 + `logic.test.ts` 单测。
 - 窗口：无边框、置顶、不进任务栏；关闭/隐藏到托盘，退出走托盘菜单。
-- 存储：`<app_config_dir>/cdown.json`（临时文件 + rename 原子写）。
+- 存储：dev 在 `<项目根>/cdown-data/cdown.json`，release 在 `<app_config_dir>/cdown.json`（临时文件 + rename 原子写；`CDOWN_DATA_DIR` 可重定向）。
