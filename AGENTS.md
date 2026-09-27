@@ -32,7 +32,8 @@ Tauri 2 倒计时桌面小组件：表格样式列出倒计时项，剩余天数
 
 ## 结构速记
 
-- Rust 分层即目录名：`commands.rs`+`commands/`（命令）→ `domain.rs`+`domain/`（模型/错误）→
+- Rust 分层即目录名，依赖方向 `domain(0) ← infra(1) ← commands(2)`（与 paim 相反：
+  store 持久化领域模型，domain 最基础）：`commands.rs`+`commands/`（命令）→ `domain.rs`+`domain/`（模型/错误）→
   `infra.rs`+`infra/`（JSON 存储），同名文件放子模块声明，**不用 mod.rs**；
   测试平铺为 `<源文件>.test.rs`（源文件末尾 `#[cfg(test)] #[path]` 声明）；
   入口 `lib.rs` 的 `run()`。
