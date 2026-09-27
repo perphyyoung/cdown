@@ -84,8 +84,10 @@ function fitAllColumns() {
 async function fitWindowWidth() {
   const total = COLUMN_KEYS.reduce((sum, c) => sum + local[c], 0) + GAP * 3 + ROW_PAD + MAIN_PAD;
   const win = getCurrentWindow();
-  const outer = await win.outerSize();
-  const logical = outer.toLogical(await win.scaleFactor());
+  // setSize 设置的是 inner 尺寸，读取也必须用 innerSize：outer 含隐藏边框差值
+  // （无边框带阴影窗口），混用会让高度每次点击棘轮式增长
+  const inner = await win.innerSize();
+  const logical = inner.toLogical(await win.scaleFactor());
   if (Math.abs(logical.width - total) < 1) return;
   await win.setSize(new LogicalSize(Math.ceil(total), Math.round(logical.height)));
 }
