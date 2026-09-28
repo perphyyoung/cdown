@@ -53,6 +53,9 @@ const COLUMN_KEYS = ["countdown", "target", "name", "note"] as const;
 const GAP = 8; // grid gap-x-2
 const ROW_PAD = 8; // 行 px-1
 const MAIN_PAD = 16; // 表格容器 px-2
+// 最长文字与左右竖线的间隙：所有列共用同一个值，改这里即可整体调整留白。
+// 竖线画在列间隙中点，故可见列宽 = 列宽 + GAP，列宽 = 最长文字 + 2 * COL_PAD - GAP。
+const COL_PAD = 12;
 
 function emitResize() {
   emit("resize", { ...local });
@@ -71,9 +74,9 @@ function measureColumn(col: keyof ColumnWidths): number {
   return max;
 }
 
-// 最长内容 + 列间距 + 余量，再夹到拖拽同款上下限
+// 最长内容 + 两侧留白（各 COL_PAD），再夹到拖拽同款上下限
 function fittedWidth(col: keyof ColumnWidths): number {
-  return Math.min(MAX, Math.max(MIN, measureColumn(col) + GAP + 6));
+  return Math.min(MAX, Math.max(MIN, measureColumn(col) + 2 * COL_PAD - GAP));
 }
 
 function fitColumn(col: keyof ColumnWidths) {
@@ -192,6 +195,9 @@ function confirmRemove() {
     <!-- w-max 收缩为表格自然宽度 + mx-auto 左右居中：拖拽列宽时两侧间距始终相等；
          总宽超出窗口时 margin auto 归零、从左溢出滚动，行为与占满时一致 -->
     <div class="w-max mx-auto">
+      <!-- 手柄 -right-2.5 / -left-2.5 = -(手柄宽 w-3 的一半 6px + gap-x-2 的一半 4px)，
+           中心落在它分隔的列间隙中点（首尾两根落在表格外缘），
+           于是每列文字到左右竖线的距离恒等；两侧留白量见 COL_PAD -->
       <div
         class="grid items-center gap-x-2 border-b border-slate-800 px-1 py-1 text-center text-xs text-slate-500"
         :style="gridStyle"
@@ -202,7 +208,7 @@ function confirmRemove() {
           @contextmenu.prevent="openHeaderMenu($event, 'countdown')"
         >
           <span
-            class="group/col absolute -left-1.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
+            class="group/col absolute -left-2.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
             title="拖拽调整列宽"
             @pointerdown="onDown('countdown', $event, true)"
             @pointermove="onMove"
@@ -214,7 +220,7 @@ function confirmRemove() {
           ></span>
           倒计时
           <span
-            class="group/col absolute -right-1.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
+            class="group/col absolute -right-2.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
             title="拖拽调整列宽"
             @pointerdown="onDown('countdown', $event)"
             @pointermove="onMove"
@@ -232,7 +238,7 @@ function confirmRemove() {
         >
           目标日期
           <span
-            class="group/col absolute -right-1.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
+            class="group/col absolute -right-2.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
             title="拖拽调整列宽"
             @pointerdown="onDown('target', $event)"
             @pointermove="onMove"
@@ -250,7 +256,7 @@ function confirmRemove() {
         >
           名称
           <span
-            class="group/col absolute -right-1.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
+            class="group/col absolute -right-2.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
             title="拖拽调整列宽"
             @pointerdown="onDown('name', $event)"
             @pointermove="onMove"
@@ -268,7 +274,7 @@ function confirmRemove() {
         >
           备注
           <span
-            class="group/col absolute -right-1.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
+            class="group/col absolute -right-2.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
             title="拖拽调整列宽"
             @pointerdown="onDown('note', $event)"
             @pointermove="onMove"
