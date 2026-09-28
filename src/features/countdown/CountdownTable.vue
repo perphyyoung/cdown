@@ -48,8 +48,19 @@ function onUp() {
   emit("resize", { ...local });
 }
 
-// —— 列宽自适应（表头右键）——
-const COLUMN_KEYS = ["countdown", "target", "name", "note"] as const;
+// —— 表头列定义与列宽自适应（表头右键）——
+// 表头列定义：顺序即列顺序；sides 决定该列挂哪几根拖拽手柄（首列左缘多一根，拖拽方向相反）
+const HEADER_COLS = [
+  { key: "countdown", label: "倒计时", sides: ["left", "right"] },
+  { key: "target", label: "目标日期", sides: ["right"] },
+  { key: "name", label: "名称", sides: ["right"] },
+  { key: "note", label: "备注", sides: ["right"] },
+] as const satisfies readonly {
+  key: keyof ColumnWidths;
+  label: string;
+  sides: readonly ("left" | "right")[];
+}[];
+const COLUMN_KEYS = HEADER_COLS.map((c) => c.key);
 const GAP = 8; // grid gap-x-2
 const ROW_PAD = 8; // 行 px-1
 const MAIN_PAD = 16; // 表格容器 px-2
@@ -203,14 +214,19 @@ function confirmRemove() {
         :style="gridStyle"
       >
         <span
+          v-for="col in HEADER_COLS"
+          :key="col.key"
           class="relative"
-          data-col="countdown"
-          @contextmenu.prevent="openHeaderMenu($event, 'countdown')"
+          :data-col="col.key"
+          @contextmenu.prevent="openHeaderMenu($event, col.key)"
         >
           <span
-            class="group/col absolute -left-2.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
+            v-for="side in col.sides"
+            :key="side"
+            class="group/col absolute top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
+            :class="side === 'left' ? '-left-2.5' : '-right-2.5'"
             title="拖拽调整列宽"
-            @pointerdown="onDown('countdown', $event, true)"
+            @pointerdown="onDown(col.key, $event, side === 'left')"
             @pointermove="onMove"
             @pointerup="onUp"
             @pointercancel="onUp"
@@ -218,72 +234,7 @@ function confirmRemove() {
               class="h-4 w-0.5 rounded-full bg-slate-600 opacity-0 transition group-hover/head:opacity-100 group-active/col:opacity-100 group-hover/col:bg-slate-300"
             ></span
           ></span>
-          倒计时
-          <span
-            class="group/col absolute -right-2.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
-            title="拖拽调整列宽"
-            @pointerdown="onDown('countdown', $event)"
-            @pointermove="onMove"
-            @pointerup="onUp"
-            @pointercancel="onUp"
-            ><span
-              class="h-4 w-0.5 rounded-full bg-slate-600 opacity-0 transition group-hover/head:opacity-100 group-active/col:opacity-100 group-hover/col:bg-slate-300"
-            ></span
-          ></span>
-        </span>
-        <span
-          class="relative"
-          data-col="target"
-          @contextmenu.prevent="openHeaderMenu($event, 'target')"
-        >
-          目标日期
-          <span
-            class="group/col absolute -right-2.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
-            title="拖拽调整列宽"
-            @pointerdown="onDown('target', $event)"
-            @pointermove="onMove"
-            @pointerup="onUp"
-            @pointercancel="onUp"
-            ><span
-              class="h-4 w-0.5 rounded-full bg-slate-600 opacity-0 transition group-hover/head:opacity-100 group-active/col:opacity-100 group-hover/col:bg-slate-300"
-            ></span
-          ></span>
-        </span>
-        <span
-          class="relative"
-          data-col="name"
-          @contextmenu.prevent="openHeaderMenu($event, 'name')"
-        >
-          名称
-          <span
-            class="group/col absolute -right-2.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
-            title="拖拽调整列宽"
-            @pointerdown="onDown('name', $event)"
-            @pointermove="onMove"
-            @pointerup="onUp"
-            @pointercancel="onUp"
-            ><span
-              class="h-4 w-0.5 rounded-full bg-slate-600 opacity-0 transition group-hover/head:opacity-100 group-active/col:opacity-100 group-hover/col:bg-slate-300"
-            ></span
-          ></span>
-        </span>
-        <span
-          class="relative"
-          data-col="note"
-          @contextmenu.prevent="openHeaderMenu($event, 'note')"
-        >
-          备注
-          <span
-            class="group/col absolute -right-2.5 top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
-            title="拖拽调整列宽"
-            @pointerdown="onDown('note', $event)"
-            @pointermove="onMove"
-            @pointerup="onUp"
-            @pointercancel="onUp"
-            ><span
-              class="h-4 w-0.5 rounded-full bg-slate-600 opacity-0 transition group-hover/head:opacity-100 group-active/col:opacity-100 group-hover/col:bg-slate-300"
-            ></span
-          ></span>
+          {{ col.label }}
         </span>
       </div>
       <div
