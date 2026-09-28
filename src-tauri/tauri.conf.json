@@ -8,7 +8,10 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
     "beforeDevCommand": "pnpm dev:ui",
-    "beforeBuildCommand": "pnpm typecheck && pnpm build"
+    "beforeBuildCommand": "pnpm typecheck && pnpm build",
+    "windows": {
+      "staticVCRuntime": true
+    }
   },
   "app": {
     "windows": [
