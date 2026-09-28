@@ -123,6 +123,11 @@ pub fn run() {
                 })
                 .build(),
         )
+        .plugin(
+            // 开机自启插件：Windows 写 HKCU Run 注册表项，注册表即唯一状态源
+            //（不进 Settings/导出导入）；前端设置页开关直调插件 JS API
+            tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None),
+        )
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app| {
             specta_builder.mount_events(app);

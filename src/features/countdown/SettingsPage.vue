@@ -4,10 +4,12 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { emit } from "@tauri-apps/api/event";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { commands } from "@/bindings";
 import { log } from "@/utils/logger";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
 import SettingsRow from "./SettingsRow.vue";
+import SettingsToggle from "./SettingsToggle.vue";
 import { countdownState } from "./useCountdown";
 import type { UrgencyLevel } from "./logic";
 
@@ -63,6 +65,9 @@ watch([ready, msg, error, settings], () => void fitHeight());
 
 onMounted(() => {
   void reload();
+  void isEnabled()
+    .then((on) => (autostart.value = on))
+    .catch((e) => (error.value = String(e)));
   void fitHeight();
 });
 
@@ -279,6 +284,24 @@ function resetHotkey() {
   );
 }
 
+// —— 开机自启：注册表 Run 项是唯一状态源（autostart 插件直读直写），
+// 不进 Settings/导出导入；先行切换视觉，失败回滚 ——
+const autostart = ref(false);
+
+async function onAutostartChange(next: boolean) {
+  autostart.value = next;
+  try {
+    if (next) await enable();
+    else await disable();
+    msg.value = next ? "已开启开机自启" : "已关闭开机自启";
+    error.value = "";
+    log.info("[autostart] 切换为", next);
+  } catch (e) {
+    autostart.value = !next;
+    error.value = String(e);
+  }
+}
+
 const btnCls =
   "shrink-0 rounded border border-slate-600 px-3 py-1 text-sm text-slate-200 hover:bg-slate-700";
 const btnSmCls =
@@ -371,8 +394,8 @@ const btnSmCls =
           <div class="min-w-0">
             <dt class="text-slate-300">全局热键</dt>
             <dd class="text-sm text-slate-500">
-              应用在后台或最小化时按此键唤起主窗口，窗口正显示在前台时再按则收回托盘；需含 Ctrl /
-              Alt / Shift 中至少一个，被其它程序占用会在下方提示
+              切换主窗口的显示；点击可自定义热键，需含 Ctrl / Alt / Shift
+              中至少一个，被其它程序占用会在下方提示
             </dd>
           </div>
           <div class="flex shrink-0 items-center gap-2">
@@ -405,6 +428,16 @@ const btnSmCls =
             >
               关闭
             </button>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between gap-3 py-3">
+          <div class="min-w-0">
+            <dt class="text-slate-300">开机自启</dt>
+            <dd class="text-sm text-slate-500">登录 Windows 后自动运行 cdown</dd>
+          </div>
+          <div class="shrink-0">
+            <SettingsToggle :model-value="autostart" @change="onAutostartChange" />
           </div>
         </div>
 

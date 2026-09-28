@@ -48,7 +48,7 @@
 - `@vuepic/vue-datepicker`（日期选择；原生 date 控件显示格式跟随系统区域无法控制，显示与存储统一 `yyyy-MM-dd`）
 - 日期日历跑在**独立 `date-picker` 小窗口**里（inline 模式、无时间选择、失焦即关）：HTML 弹层画不出窗口边界，原生 flyout 的「浮在窗口外」体验只能靠独立窗口实现
 - `tauri` 的 `tray-icon` 特性（关到托盘、右键退出/唤起；小组件没有任务栏图标，托盘是唯一出口）
-- 二期候选：`tauri-plugin-autostart`（开机自启，小组件类应用大概率需要）
+- `tauri-plugin-autostart` + `@tauri-apps/plugin-autostart`（开机自启，设置页开关；Windows 写 HKCU Run 注册表项，**注册表即唯一状态源**，不进 Settings/导出导入，前端直调插件 API，dev/release 共用同一注册表项、后启用方覆盖）
 
 ## 4. 窗口形态
 

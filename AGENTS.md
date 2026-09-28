@@ -41,4 +41,5 @@ Tauri 2 倒计时桌面小组件：表格样式列出倒计时项，剩余天数
   入口 `lib.rs` 的 `run()`。
 - 前端：`src/features/countdown/`（业务切片）+ `src/app/App.vue`；`logic.ts` 纯函数 + `logic.test.ts` 单测。
 - 窗口：无边框、置顶、不进任务栏；关闭/隐藏到托盘，退出走托盘菜单。
+- 开机自启：`tauri-plugin-autostart`，注册表 Run 项为唯一状态源（不进 Settings/导出导入）。
 - 存储：dev 在 `<项目根>/cdown-data/cdown.json`，release 在 `<app_config_dir>/cdown.json`（临时文件 + rename 原子写；`CDOWN_DATA_DIR` 可重定向）。
