@@ -199,7 +199,7 @@ function confirmRemove() {
            中心落在它分隔的列间隙中点（首尾两根落在表格外缘），
            于是每列文字到左右竖线的距离恒等；两侧留白量见 COL_PAD -->
       <div
-        class="grid items-center gap-x-2 border-b border-slate-800 px-1 py-1 text-center text-xs text-slate-500"
+        class="group/head grid items-center gap-x-2 border-b border-slate-800 px-1 py-1 text-center text-xs text-slate-500"
         :style="gridStyle"
       >
         <span
@@ -215,7 +215,7 @@ function confirmRemove() {
             @pointerup="onUp"
             @pointercancel="onUp"
             ><span
-              class="h-4 w-0.5 rounded-full bg-slate-600 transition-colors group-hover/col:bg-slate-300"
+              class="h-4 w-0.5 rounded-full bg-slate-600 opacity-0 transition group-hover/head:opacity-100 group-active/col:opacity-100 group-hover/col:bg-slate-300"
             ></span
           ></span>
           倒计时
@@ -227,7 +227,7 @@ function confirmRemove() {
             @pointerup="onUp"
             @pointercancel="onUp"
             ><span
-              class="h-4 w-0.5 rounded-full bg-slate-600 transition-colors group-hover/col:bg-slate-300"
+              class="h-4 w-0.5 rounded-full bg-slate-600 opacity-0 transition group-hover/head:opacity-100 group-active/col:opacity-100 group-hover/col:bg-slate-300"
             ></span
           ></span>
         </span>
@@ -245,7 +245,7 @@ function confirmRemove() {
             @pointerup="onUp"
             @pointercancel="onUp"
             ><span
-              class="h-4 w-0.5 rounded-full bg-slate-600 transition-colors group-hover/col:bg-slate-300"
+              class="h-4 w-0.5 rounded-full bg-slate-600 opacity-0 transition group-hover/head:opacity-100 group-active/col:opacity-100 group-hover/col:bg-slate-300"
             ></span
           ></span>
         </span>
@@ -263,7 +263,7 @@ function confirmRemove() {
             @pointerup="onUp"
             @pointercancel="onUp"
             ><span
-              class="h-4 w-0.5 rounded-full bg-slate-600 transition-colors group-hover/col:bg-slate-300"
+              class="h-4 w-0.5 rounded-full bg-slate-600 opacity-0 transition group-hover/head:opacity-100 group-active/col:opacity-100 group-hover/col:bg-slate-300"
             ></span
           ></span>
         </span>
@@ -281,7 +281,7 @@ function confirmRemove() {
             @pointerup="onUp"
             @pointercancel="onUp"
             ><span
-              class="h-4 w-0.5 rounded-full bg-slate-600 transition-colors group-hover/col:bg-slate-300"
+              class="h-4 w-0.5 rounded-full bg-slate-600 opacity-0 transition group-hover/head:opacity-100 group-active/col:opacity-100 group-hover/col:bg-slate-300"
             ></span
           ></span>
         </span>
