@@ -378,8 +378,14 @@ const btnSmCls =
           <div class="flex shrink-0 items-center gap-2">
             <button
               :class="[btnCls, recording ? 'ring-1 ring-slate-500' : '']"
-              :title="recording ? 'Esc 取消，Backspace 关闭热键' : '点击后按下组合键'"
-              @click="recording = !recording"
+              :title="
+                recording
+                  ? 'Esc 取消，Backspace 关闭热键'
+                  : settings.hotkey
+                    ? '点击后按下组合键'
+                    : `点击启用默认热键 ${DEFAULT_HOTKEY}`
+              "
+              @click="settings.hotkey === null ? resetHotkey() : (recording = !recording)"
             >
               {{ recording ? "请按组合键…" : (settings.hotkey ?? "未启用") }}
             </button>
