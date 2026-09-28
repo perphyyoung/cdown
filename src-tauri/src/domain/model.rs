@@ -63,6 +63,13 @@ fn default_true() -> bool {
     true
 }
 
+/// 默认全局热键（accelerator 串，格式见 global-hotkey 解析器：修饰键在前 + 一个主键）
+pub const DEFAULT_HOTKEY: &str = "Ctrl+Alt+C";
+
+fn default_hotkey() -> Option<String> {
+    Some(DEFAULT_HOTKEY.into())
+}
+
 fn default_levels() -> Vec<UrgencyLevel> {
     vec![
         UrgencyLevel {
@@ -100,6 +107,10 @@ pub struct Settings {
     /// 主窗口置顶（标题栏图钉切换）；旧数据缺字段按默认置顶处理
     #[serde(default = "default_true")]
     pub always_on_top: bool,
+    /// 全局热键 accelerator（如 `Ctrl+Alt+C`）唤起主窗口；None = 关闭热键。
+    /// 字段缺失（旧数据）回落默认键，显式 null 表示用户关闭 —— serde 只在缺失时用 default。
+    #[serde(default = "default_hotkey")]
+    pub hotkey: Option<String>,
 }
 
 impl Default for Settings {
@@ -108,6 +119,7 @@ impl Default for Settings {
             levels: default_levels(),
             column_widths: ColumnWidths::default(),
             always_on_top: true,
+            hotkey: default_hotkey(),
         }
     }
 }
@@ -135,6 +147,11 @@ impl Settings {
         levels.sort_by(|a, b| b.threshold_days.cmp(&a.threshold_days));
         levels.truncate(MAX_LEVELS);
         self.levels = levels;
+        // 热键：仅做去空白与空串归 None（合法性由注册时的解析器判定，非法键在设置页报错）
+        self.hotkey = self
+            .hotkey
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
         self
     }
 }

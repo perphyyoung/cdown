@@ -83,6 +83,11 @@ export type Settings = {
 	column_widths?: ColumnWidths,
 	/**  主窗口置顶（标题栏图钉切换）；旧数据缺字段按默认置顶处理 */
 	always_on_top?: boolean,
+	/**
+	 *  全局热键 accelerator（如 `Ctrl+Alt+C`）唤起主窗口；None = 关闭热键。
+	 *  字段缺失（旧数据）回落默认键，显式 null 表示用户关闭 —— serde 只在缺失时用 default。
+	 */
+	hotkey?: string | null,
 };
 
 /**  紧急度分级：剩余天数 ≤ threshold_days 时该行采用 color 显示（含当天 days = 0）。 */

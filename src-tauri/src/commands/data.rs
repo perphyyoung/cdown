@@ -3,11 +3,13 @@
 use std::fs;
 
 use serde::{Deserialize, Serialize};
-use tauri::State;
+use tauri::{AppHandle, State};
 
+use crate::commands::hotkey;
 use crate::domain::error::CommandError;
 use crate::domain::model::{CountdownItem, Settings};
 use crate::infra::store::{Store, StoreData};
+use crate::log_warn;
 
 const EXPORT_FORMAT: &str = "cdown-export";
 const EXPORT_VERSION: u32 = 1;
@@ -139,7 +141,11 @@ pub fn export_settings(store: State<'_, Store>, path: String) -> Result<(), Comm
 /// 导入设置（替换现有设置，倒计时项不动）。
 #[tauri::command]
 #[specta::specta]
-pub fn import_settings(store: State<'_, Store>, path: String) -> Result<(), CommandError> {
+pub fn import_settings(
+    app: AppHandle,
+    store: State<'_, Store>,
+    path: String,
+) -> Result<(), CommandError> {
     let envelope = read_envelope(&path)?;
     if envelope.kind != KIND_SETTINGS {
         return Err(CommandError::Invalid(
@@ -151,10 +157,20 @@ pub fn import_settings(store: State<'_, Store>, path: String) -> Result<(), Comm
         .ok_or_else(|| CommandError::Invalid("导入文件缺少 settings 内容".into()))?;
     settings = settings.normalized();
     settings.column_widths = settings.column_widths.sanitized();
-    store.mutate(move |d: &mut StoreData| -> Result<(), CommandError> {
+    // 与 set_settings 同序：先校验/注册热键，再落盘；落盘失败回滚热键注册
+    settings.hotkey = hotkey::canonicalize(settings.hotkey.as_deref())?;
+    let prev = store.read()?.settings.hotkey;
+    hotkey::apply(&app, settings.hotkey.as_deref())?;
+    let saved = store.mutate(move |d: &mut StoreData| -> Result<(), CommandError> {
         d.settings = settings;
         Ok(())
-    })?;
+    });
+    if let Err(e) = saved {
+        if let Err(back) = hotkey::apply(&app, prev.as_deref()) {
+            log_warn!("全局热键回滚失败：{back}");
+        }
+        return Err(e);
+    }
     Ok(())
 }
 

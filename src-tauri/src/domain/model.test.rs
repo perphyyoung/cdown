@@ -1,4 +1,4 @@
-use super::{ColumnWidths, CountdownItem, Settings, UrgencyLevel};
+use super::{ColumnWidths, CountdownItem, Settings, UrgencyLevel, DEFAULT_HOTKEY};
 
 fn level(days: u32, color: &str) -> UrgencyLevel {
     UrgencyLevel {
@@ -22,6 +22,24 @@ fn settings_default_is_three_levels() {
     let s: Settings = serde_json::from_str("{}").unwrap();
     assert_eq!(s.levels, Settings::default().levels);
     assert!(s.always_on_top);
+    assert_eq!(s.hotkey.as_deref(), Some(DEFAULT_HOTKEY));
+}
+
+#[test]
+fn hotkey_default_only_when_field_missing() {
+    // 显式 null = 用户主动关闭热键，不能被默认值覆盖
+    let s: Settings = serde_json::from_str("{\"hotkey\":null}").unwrap();
+    assert_eq!(s.hotkey, None);
+    // 自定键原样保留
+    let s: Settings = serde_json::from_str("{\"hotkey\":\"Ctrl+Alt+K\"}").unwrap();
+    assert_eq!(s.hotkey.as_deref(), Some("Ctrl+Alt+K"));
+    // 空白串归一为 None（关闭热键）
+    let s = Settings {
+        hotkey: Some("   ".into()),
+        ..Settings::default()
+    }
+    .normalized();
+    assert_eq!(s.hotkey, None);
 }
 
 #[test]
@@ -59,6 +77,7 @@ fn settings_normalized_sorts_dedupes_and_fixes_colors() {
         ],
         column_widths: ColumnWidths::default(),
         always_on_top: true,
+        hotkey: None,
     }
     .normalized();
     let thresholds: Vec<u32> = s.levels.iter().map(|l| l.threshold_days).collect();
@@ -78,6 +97,7 @@ fn settings_normalized_caps_levels() {
         levels,
         column_widths: ColumnWidths::default(),
         always_on_top: true,
+        hotkey: None,
     }
     .normalized();
     assert_eq!(s.levels.len(), 6);

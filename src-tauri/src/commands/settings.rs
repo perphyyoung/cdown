@@ -2,9 +2,11 @@
 
 use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
+use crate::commands::hotkey;
 use crate::domain::error::CommandError;
 use crate::domain::model::Settings;
 use crate::infra::store::{Store, StoreData};
+use crate::log_warn;
 
 pub const SETTINGS_WINDOW_LABEL: &str = "settings";
 
@@ -52,12 +54,28 @@ pub fn get_settings(store: State<'_, Store>) -> Result<Settings, CommandError> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn set_settings(store: State<'_, Store>, settings: Settings) -> Result<Settings, CommandError> {
+pub fn set_settings(
+    app: AppHandle,
+    store: State<'_, Store>,
+    settings: Settings,
+) -> Result<Settings, CommandError> {
     let mut settings = settings.normalized();
     settings.column_widths = settings.column_widths.sanitized();
-    store.mutate(|d: &mut StoreData| -> Result<(), CommandError> {
+    // 热键先校验规范化（非法即整次保存失败），再注册、最后落盘：
+    // 顺序不能反——先落盘会把一个没生效的键写进 cdown.json；先注册则失败时旧键仍可用。
+    settings.hotkey = hotkey::canonicalize(settings.hotkey.as_deref())?;
+    let prev = store.read()?.settings.hotkey;
+    hotkey::apply(&app, settings.hotkey.as_deref())?;
+    let saved = store.mutate(|d: &mut StoreData| -> Result<(), CommandError> {
         d.settings = settings.clone();
         Ok(())
-    })?;
+    });
+    if let Err(e) = saved {
+        // 落盘失败：把热键注册回滚到旧值，避免内存热键与 cdown.json 不一致
+        if let Err(back) = hotkey::apply(&app, prev.as_deref()) {
+            log_warn!("全局热键回滚失败：{back}");
+        }
+        return Err(e);
+    }
     Ok(settings)
 }

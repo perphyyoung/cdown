@@ -69,6 +69,7 @@ fn save_then_reload_keeps_settings() {
                 }],
                 column_widths: ColumnWidths::default(),
                 always_on_top: false,
+                hotkey: Some("Ctrl+Alt+K".into()),
             };
             Ok(())
         })
@@ -78,4 +79,6 @@ fn save_then_reload_keeps_settings() {
     assert_eq!(data.settings.levels[0].threshold_days, 7);
     // always_on_top 随设置整体持久化
     assert!(!data.settings.always_on_top);
+    // 热键也随设置整体持久化
+    assert_eq!(data.settings.hotkey.as_deref(), Some("Ctrl+Alt+K"));
 }

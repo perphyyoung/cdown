@@ -36,6 +36,8 @@ interface SettingsView {
   levels: UrgencyLevel[];
   column_widths: ColumnWidths;
   alwaysOnTop: boolean;
+  /** 全局热键 accelerator（如 Ctrl+Alt+C）；null = 关闭热键 */
+  hotkey: string | null;
 }
 
 // bindings 里字段因 Rust 侧 serde(default) 导出为可选，读取前先归一化
@@ -57,6 +59,7 @@ function normalizeSettings(cfg: Settings): SettingsView {
       note: w.note ?? DEFAULT_WIDTHS.note,
     },
     alwaysOnTop: cfg.always_on_top ?? true,
+    hotkey: cfg.hotkey ?? null,
   };
 }
 
@@ -70,6 +73,7 @@ const settings = ref<SettingsView>({
   ],
   column_widths: { ...DEFAULT_WIDTHS },
   alwaysOnTop: true,
+  hotkey: null,
 });
 const today = ref(todayStr());
 const ready = ref(false);
@@ -121,6 +125,7 @@ async function saveSettings(patch: {
   levels?: UrgencyLevel[];
   columnWidths?: ColumnWidths;
   alwaysOnTop?: boolean;
+  hotkey?: string | null;
 }) {
   const next: Settings = {
     levels: (patch.levels ?? settings.value.levels).map((l) => ({
@@ -130,6 +135,9 @@ async function saveSettings(patch: {
     // 列宽必须取整：后端 u32 不接受浮点（缩放屏拖拽会产生小数）
     column_widths: roundColumnWidths(patch.columnWidths ?? settings.value.column_widths),
     always_on_top: patch.alwaysOnTop ?? settings.value.alwaysOnTop,
+    // 热键必须显式带上：字段缺失会被后端 serde default 填回默认键，
+    // 故用 in 判别「未修改」与「关闭热键（null）」
+    hotkey: "hotkey" in patch ? (patch.hotkey ?? null) : settings.value.hotkey,
   };
   settings.value = normalizeSettings(await commands.setSettings(next));
 }

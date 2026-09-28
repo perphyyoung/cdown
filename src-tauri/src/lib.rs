@@ -103,6 +103,18 @@ pub fn run() {
             }
             state.build()
         })
+        .plugin(
+            // 全局热键插件：注册/注销全在 Rust 侧（见 commands/hotkey.rs），capabilities 无需开权限。
+            // 键位不在构建期注册（构建期注册失败会让启动直接失败），而是 setup 里按设置注册；
+            // with_handler 是「任意已注册热键被按下」的统一入口。
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, _shortcut, event| {
+                    if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                        commands::hotkey::show_main_window(app);
+                    }
+                })
+                .build(),
+        )
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app| {
             specta_builder.mount_events(app);
@@ -111,6 +123,7 @@ pub fn run() {
             let data_dir = infra::store::data_dir(app.handle());
             std::fs::create_dir_all(&data_dir)?;
             app.manage(infra::store::Store::new(data_dir.join("cdown.json")));
+            app.manage(commands::hotkey::RegisteredHotkey::default());
             app.manage(commands::date_picker::DatePickerPayload::default());
             // 原生文件对话框（设置页的导出/导入选路径用）
             app.handle().plugin(tauri_plugin_dialog::init())?;
@@ -120,11 +133,7 @@ pub fn run() {
             #[cfg(desktop)]
             app.handle()
                 .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-                    if let Some(w) = app.get_webview_window("main") {
-                        let _ = w.show();
-                        let _ = w.unminimize();
-                        let _ = w.set_focus();
-                    }
+                    commands::hotkey::show_main_window(app);
                 }))?;
 
             // 托盘常驻：小组件 skipTaskbar 没有任务栏图标，托盘是唯一出口。
@@ -147,22 +156,12 @@ pub fn run() {
                     .menu(&menu)
                     .show_menu_on_left_click(false)
                     .on_menu_event(|app, event| match event.id.as_ref() {
-                        "show" => {
-                            if let Some(w) = app.get_webview_window("main") {
-                                let _ = w.show();
-                                let _ = w.unminimize();
-                                let _ = w.set_focus();
-                            }
-                        }
+                        "show" => commands::hotkey::show_main_window(app),
                         // 设置：唤起主窗口（供对照）并打开独立设置窗口。
                         // 菜单事件处理器在主线程，build() 必须丢到独立线程，
                         // 否则 Windows 上死锁（官方文档警告，同 async 命令）。
                         "settings" => {
-                            if let Some(w) = app.get_webview_window("main") {
-                                let _ = w.show();
-                                let _ = w.unminimize();
-                                let _ = w.set_focus();
-                            }
+                            commands::hotkey::show_main_window(app);
                             let settings_app = app.clone();
                             tauri::async_runtime::spawn(async move {
                                 if let Err(e) =
@@ -196,9 +195,7 @@ pub fn run() {
                                 if w.is_visible().unwrap_or(false) {
                                     let _ = w.hide();
                                 } else {
-                                    let _ = w.show();
-                                    let _ = w.unminimize();
-                                    let _ = w.set_focus();
+                                    commands::hotkey::show_main_window(app);
                                 }
                             }
                         }
@@ -209,14 +206,19 @@ pub fn run() {
             // 主窗口配置为 visible:false（避免几何恢复前的尺寸闪变），此处亮相
             let main_window = app.get_webview_window("main").expect("主窗口不存在");
             // 置顶偏好存 Settings（标题栏图钉切换），conf 的 alwaysOnTop:true 仅为
-            // 首次启动兜底；此处以 Settings 为准。读取失败按默认置顶处理（与 conf 一致）
-            let pinned = app
+            // 首次启动兜底；此处以 Settings 为准。读取失败按默认设置处理（与 conf 一致）
+            let settings = app
                 .state::<infra::store::Store>()
                 .read()
-                .map(|d| d.settings.always_on_top)
-                .unwrap_or(true);
-            let _ = main_window.set_always_on_top(pinned);
+                .map(|d| d.settings.clone())
+                .unwrap_or_default();
+            let _ = main_window.set_always_on_top(settings.always_on_top);
             let _ = main_window.show();
+
+            // 全局热键：按设置注册（键被别的程序占用时只记日志，不影响启动）
+            if let Err(e) = commands::hotkey::apply(app.handle(), settings.hotkey.as_deref()) {
+                log_warn!("全局热键注册失败：{e}");
+            }
 
             // 日志插件仅 debug 构建注册（终端输出）；应用日志量小，release 不落盘
             if cfg!(debug_assertions) {

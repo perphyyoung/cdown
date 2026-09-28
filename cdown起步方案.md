@@ -34,7 +34,9 @@
 
 - `rusqlite` → JSON 文件；`vue-router` → 无此需求（`plugin-dialog` 一期为导出/导入引入，见下）
 - asset protocol（`protocol-asset` 特性）→ 无本地图片加载，CSP 相应简化
-- `tauri-plugin-global-shortcut` → 一期不做（二期可加热键显示/隐藏）
+- `tauri-plugin-global-shortcut` → 二期已做：默认 `Ctrl+Alt+C` 唤起主窗口（托盘隐藏/最小化时也生效），
+  键位存 `Settings.hotkey`（`null` = 关闭），设置页可录键修改；注册/注销全在 Rust 侧（`commands/hotkey.rs`），
+  capabilities 不需开权限，键被其它程序占用时保存报错且保留旧键
 - `tauri-plugin-log` 仅保留 debug 终端输出；文件日志按 paim 引入自研 `infra/logging.rs`（`cdown.log` + `cdown-config.toml` 分级 + `CDOWN_LOG` 环境变量 + 前端 logger，见 日志使用说明.md）
 - Playwright e2e 骨架 → 二期（先抄 paim 的 fixture/CDP 模式）
 
@@ -125,7 +127,7 @@ cdown/
 4. 前端：表格组件、tick、变红逻辑（先写 logic.ts 与单测）、增删改表单、阈值设置行。
 5. 集成：single-instance 最先注册、托盘、无边框拖动、隐藏到托盘。
 6. `pnpm check` 跑通一次 → `pnpm dev` 手工验收。
-7. 二期：Playwright e2e（抄 paim 骨架）、全局热键、开机自启、透明背景、行内编辑优化。
+7. 二期：Playwright e2e（抄 paim 骨架）、~~全局热键~~（已做，默认 `Ctrl+Alt+C`）、开机自启、透明背景、行内编辑优化。
 
 ## 10. 待确认
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { emit } from "@tauri-apps/api/event";
@@ -199,6 +199,58 @@ function onLevelColor(index: number, e: Event) {
   updateLevel(index, { color: (e.target as HTMLInputElement).value });
 }
 
+// —— 全局热键：点按钮进入录制态，捕获组合键后交后端校验并注册 ——
+const recording = ref(false);
+const MODIFIER_KEYS = new Set(["Control", "Alt", "Shift", "Meta"]);
+
+// 拼 accelerator：修饰键顺序 Ctrl/Alt/Shift/Super，主键用 e.code（KeyC/Digit1/F8…，与后端 Code 名一致）
+function acceleratorOf(e: KeyboardEvent): string | null {
+  if (MODIFIER_KEYS.has(e.key)) return null; // 只按下修饰键，继续等主键
+  const mods = [
+    e.ctrlKey && "Ctrl",
+    e.altKey && "Alt",
+    e.shiftKey && "Shift",
+    e.metaKey && "Super",
+  ].filter(Boolean) as string[];
+  if (!mods.length) return null; // 无修饰键不接受（与后端 rule 一致）
+  return [...mods, e.code].join("+");
+}
+
+function onRecordKeydown(e: KeyboardEvent) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (e.key === "Escape") {
+    recording.value = false;
+    return;
+  }
+  if (e.key === "Backspace" || e.key === "Delete") {
+    void setHotkey(null); // 清空 = 关闭热键
+    return;
+  }
+  const acc = acceleratorOf(e);
+  if (acc) void setHotkey(acc);
+}
+
+// 仅在录制期间挂 document 级监听，并成对移除（离开设置页不留残留监听）
+watch(recording, (on) => {
+  if (on) document.addEventListener("keydown", onRecordKeydown, true);
+  else document.removeEventListener("keydown", onRecordKeydown, true);
+});
+onUnmounted(() => document.removeEventListener("keydown", onRecordKeydown, true));
+
+async function setHotkey(hotkey: string | null) {
+  recording.value = false;
+  try {
+    await saveSettings({ hotkey });
+    await emit("settings-changed", null);
+    msg.value = hotkey ? `全局热键已设为 ${settings.value.hotkey}` : "全局热键已关闭";
+    error.value = "";
+  } catch (e) {
+    // 被其它程序占用 / 无法识别都走这里，保留原键
+    error.value = String(e);
+  }
+}
+
 const btnCls =
   "shrink-0 rounded border border-slate-600 px-3 py-1 text-sm text-slate-200 hover:bg-slate-700";
 const btnSmCls =
@@ -289,9 +341,36 @@ const btnSmCls =
 
         <div class="flex items-center justify-between gap-3 py-3">
           <div class="min-w-0">
+            <dt class="text-slate-300">全局热键</dt>
+            <dd class="text-sm text-slate-500">
+              应用在后台或最小化时按此键唤起主窗口；需含 Ctrl / Alt / Shift
+              中至少一个，被其它程序占用会在下方提示
+            </dd>
+          </div>
+          <div class="flex shrink-0 items-center gap-2">
+            <button
+              :class="[btnCls, recording ? 'ring-1 ring-slate-500' : '']"
+              :title="recording ? 'Esc 取消，Backspace 关闭热键' : '点击后按下组合键'"
+              @click="recording = !recording"
+            >
+              {{ recording ? "请按组合键…" : (settings.hotkey ?? "未启用") }}
+            </button>
+            <button
+              v-if="settings.hotkey && !recording"
+              :class="btnSmCls"
+              title="关闭全局热键"
+              @click="setHotkey(null)"
+            >
+              关闭
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between gap-3 py-3">
+          <div class="min-w-0">
             <dt class="text-slate-300">设置备份</dt>
             <dd class="text-sm text-slate-500">
-              导出/导入紧急度分级与列宽；导入为替换语义，只覆盖设置，倒计时不动
+              导出/导入紧急度分级、列宽与全局热键；导入为替换语义，只覆盖设置，倒计时不动
             </dd>
           </div>
           <div class="flex shrink-0 gap-2">
