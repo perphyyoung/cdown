@@ -242,12 +242,15 @@ onUnmounted(() => document.removeEventListener("keydown", onRecordKeydown, true)
 
 async function setHotkey(hotkey: string | null) {
   recording.value = false;
+  const wasEnabled = settings.value.hotkey !== null;
   try {
     await saveSettings({ hotkey });
     await emit("settings-changed", null);
     msg.value = hotkey
       ? hotkey === DEFAULT_HOTKEY
-        ? `全局热键已重置为 ${DEFAULT_HOTKEY}`
+        ? wasEnabled
+          ? `全局热键已重置为 ${DEFAULT_HOTKEY}`
+          : `全局热键已启用（${DEFAULT_HOTKEY}）`
         : `全局热键已设为 ${settings.value.hotkey}`
       : "全局热键已关闭";
     error.value = "";
@@ -266,10 +269,14 @@ function closeHotkey() {
   });
 }
 
+// 未启用时点「重置」= 用默认键启用；自定义键时 = 恢复默认键
 function resetHotkey() {
-  askConfirm(`重置为默认热键 ${DEFAULT_HOTKEY}？`, () => void setHotkey(DEFAULT_HOTKEY), {
-    confirmText: "重置",
-  });
+  const enabled = settings.value.hotkey !== null;
+  askConfirm(
+    enabled ? `重置为默认热键 ${DEFAULT_HOTKEY}？` : `启用默认热键 ${DEFAULT_HOTKEY}？`,
+    () => void setHotkey(DEFAULT_HOTKEY),
+    { confirmText: enabled ? "重置" : "启用" },
+  );
 }
 
 const btnCls =
@@ -377,9 +384,9 @@ const btnSmCls =
               {{ recording ? "请按组合键…" : (settings.hotkey ?? "未启用") }}
             </button>
             <button
-              v-if="settings.hotkey && settings.hotkey !== DEFAULT_HOTKEY && !recording"
+              v-if="settings.hotkey !== DEFAULT_HOTKEY && !recording"
               :class="btnSmCls"
-              title="恢复为默认热键"
+              :title="settings.hotkey ? '恢复为默认热键' : '启用默认热键'"
               @click="resetHotkey"
             >
               重置
