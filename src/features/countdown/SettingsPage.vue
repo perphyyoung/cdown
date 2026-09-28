@@ -201,6 +201,8 @@ function onLevelColor(index: number, e: Event) {
 
 // —— 全局热键：点按钮进入录制态，捕获组合键后交后端校验并注册 ——
 const recording = ref(false);
+// 与后端 domain::model::DEFAULT_HOTKEY 保持一致（同 DEFAULT_LEVELS 的先例）
+const DEFAULT_HOTKEY = "Ctrl+Alt+C";
 const MODIFIER_KEYS = new Set(["Control", "Alt", "Shift", "Meta"]);
 
 // 拼 accelerator：修饰键顺序 Ctrl/Alt/Shift/Super，主键用 e.code（KeyC/Digit1/F8…，与后端 Code 名一致）
@@ -224,7 +226,7 @@ function onRecordKeydown(e: KeyboardEvent) {
     return;
   }
   if (e.key === "Backspace" || e.key === "Delete") {
-    void setHotkey(null); // 清空 = 关闭热键
+    closeHotkey(); // 清空 = 关闭热键，走同一确认
     return;
   }
   const acc = acceleratorOf(e);
@@ -243,12 +245,31 @@ async function setHotkey(hotkey: string | null) {
   try {
     await saveSettings({ hotkey });
     await emit("settings-changed", null);
-    msg.value = hotkey ? `全局热键已设为 ${settings.value.hotkey}` : "全局热键已关闭";
+    msg.value = hotkey
+      ? hotkey === DEFAULT_HOTKEY
+        ? `全局热键已重置为 ${DEFAULT_HOTKEY}`
+        : `全局热键已设为 ${settings.value.hotkey}`
+      : "全局热键已关闭";
     error.value = "";
   } catch (e) {
     // 被其它程序占用 / 无法识别都走这里，保留原键
     error.value = String(e);
   }
+}
+
+// 关闭与重置都是破坏性操作，二次确认（与分级删除/重置一致）
+function closeHotkey() {
+  // 从录制态进入确认前先退出，避免录制监听器吞掉确认框的 Esc/Enter
+  recording.value = false;
+  askConfirm("关闭后全局热键立即失效，需重新录制才能再次启用。", () => void setHotkey(null), {
+    confirmText: "关闭",
+  });
+}
+
+function resetHotkey() {
+  askConfirm(`重置为默认热键 ${DEFAULT_HOTKEY}？`, () => void setHotkey(DEFAULT_HOTKEY), {
+    confirmText: "重置",
+  });
 }
 
 const btnCls =
@@ -356,10 +377,18 @@ const btnSmCls =
               {{ recording ? "请按组合键…" : (settings.hotkey ?? "未启用") }}
             </button>
             <button
+              v-if="settings.hotkey && settings.hotkey !== DEFAULT_HOTKEY && !recording"
+              :class="btnSmCls"
+              title="恢复为默认热键"
+              @click="resetHotkey"
+            >
+              重置
+            </button>
+            <button
               v-if="settings.hotkey && !recording"
               :class="btnSmCls"
               title="关闭全局热键"
-              @click="setHotkey(null)"
+              @click="closeHotkey"
             >
               关闭
             </button>
