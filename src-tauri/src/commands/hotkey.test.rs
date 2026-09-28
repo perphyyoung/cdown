@@ -1,6 +1,6 @@
-//! hotkey.rs 的单元测试：accelerator 解析与规范化规则
+//! hotkey.rs 的单元测试：accelerator 解析与规范化规则、热键切换判定
 
-use super::canonicalize;
+use super::{canonicalize, is_in_front, HotkeyHeld};
 
 fn norm(raw: &str) -> Option<String> {
     canonicalize(Some(raw)).unwrap()
@@ -41,4 +41,21 @@ fn rejects_unparsable() {
     assert!(canonicalize(Some("Ctrl+Alt+没这个键")).is_err());
     assert!(canonicalize(Some("Ctrl+C+Alt")).is_err()); // 主键必须最后
     assert!(canonicalize(Some("Ctrl+")).is_err());
+}
+
+#[test]
+fn front_window_only_when_visible_and_focused() {
+    assert!(is_in_front(true, false, true)); // 正显示在前台 → 按热键收回托盘
+    assert!(!is_in_front(false, false, false)); // 已藏在托盘 → 唤起
+    assert!(!is_in_front(true, true, false)); // 最小化 → 唤起（unminimize）
+    assert!(!is_in_front(true, false, false)); // 可见但被别的程序压住 → 唤起
+}
+
+#[test]
+fn held_flag_only_fires_on_fresh_press() {
+    let held = HotkeyHeld::default();
+    assert!(held.press()); // 松手状态下的按下 = 一次有效切换
+    assert!(!held.press()); // 长按的自动重复 → 忽略，避免反复 toggle
+    held.release();
+    assert!(held.press()); // 松手后再按
 }

@@ -343,8 +343,8 @@ const btnSmCls =
           <div class="min-w-0">
             <dt class="text-slate-300">全局热键</dt>
             <dd class="text-sm text-slate-500">
-              应用在后台或最小化时按此键唤起主窗口；需含 Ctrl / Alt / Shift
-              中至少一个，被其它程序占用会在下方提示
+              应用在后台或最小化时按此键唤起主窗口，窗口正显示在前台时再按则收回托盘；需含 Ctrl /
+              Alt / Shift 中至少一个，被其它程序占用会在下方提示
             </dd>
           </div>
           <div class="flex shrink-0 items-center gap-2">

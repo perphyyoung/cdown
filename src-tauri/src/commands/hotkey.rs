@@ -1,8 +1,9 @@
-//! 全局热键：解析/注册/改键，以及热键触发时唤起主窗口。
+//! 全局热键：解析/注册/改键，以及热键触发时唤起/收回主窗口。
 //!
 //! 插件只在 Rust 侧调用（不走前端 IPC），故 capabilities 无需开 global-shortcut 权限；
 //! 键位不在插件构建期注册（构建期注册失败会让启动直接失败），而是按设置在这里注册。
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 use tauri::{AppHandle, Manager};
@@ -14,6 +15,27 @@ use crate::{log_info, log_warn};
 /// 当前已注册的热键（规范串 + 解析结果）；None = 未注册（用户关闭热键）
 #[derive(Default)]
 pub struct RegisteredHotkey(Mutex<Option<(String, Shortcut)>>);
+
+/// 热键是否处于「按下未松」状态：过滤长按时的自动重复，避免反复 toggle 抖动
+#[derive(Default)]
+pub struct HotkeyHeld(AtomicBool);
+
+impl HotkeyHeld {
+    /// 是否是「新的一次按下」（上一次已松开）
+    pub fn press(&self) -> bool {
+        !self.0.swap(true, Ordering::SeqCst)
+    }
+
+    pub fn release(&self) {
+        self.0.store(false, Ordering::SeqCst);
+    }
+}
+
+/// 主窗口是否「正被用户看着」：可见 + 未最小化 + 有焦点。
+/// 抽成纯函数是为了能单测，三个入参都取自窗口实时状态。
+fn is_in_front(visible: bool, minimized: bool, focused: bool) -> bool {
+    visible && !minimized && focused
+}
 
 /// 解析并规范化 accelerator：修饰键固定顺序 Ctrl/Alt/Shift/Super，
 /// 主键去掉 Web 键名里的 Key/Digit 前缀（KeyC → C、Digit1 → 1），其余保留（F8、Space…）。
@@ -104,6 +126,31 @@ pub fn show_main_window(app: &AppHandle) {
         let _ = w.show();
         let _ = w.unminimize();
         let _ = w.set_focus();
+    }
+}
+
+/// 把主窗口收回托盘（与标题栏「—」同一动作）
+pub fn hide_main_window(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.hide();
+    }
+}
+
+/// 热键切换：主窗口正显示在前台 → 收回托盘；其余（托盘隐藏 / 最小化 / 被别的程序压住）
+/// → 唤起。与托盘左键的可见性 toggle 不同：按热键时窗口不会失焦，故这里能用 `is_focused`
+/// 判断「用户正看着它」；隐藏后 is_visible 即变 false，下次按下自然回到唤起分支。
+pub fn toggle_main_window(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let front = is_in_front(
+            w.is_visible().unwrap_or(false),
+            w.is_minimized().unwrap_or(false),
+            w.is_focused().unwrap_or(false),
+        );
+        if front {
+            hide_main_window(app);
+        } else {
+            show_main_window(app);
+        }
     }
 }
 

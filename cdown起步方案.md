@@ -34,7 +34,8 @@
 
 - `rusqlite` → JSON 文件；`vue-router` → 无此需求（`plugin-dialog` 一期为导出/导入引入，见下）
 - asset protocol（`protocol-asset` 特性）→ 无本地图片加载，CSP 相应简化
-- `tauri-plugin-global-shortcut` → 二期已做：默认 `Ctrl+Alt+C` 唤起主窗口（托盘隐藏/最小化时也生效），
+- `tauri-plugin-global-shortcut` → 二期已做：默认 `Ctrl+Alt+C` 切换主窗口（托盘隐藏/最小化时按下唤起，
+  窗口正显示在前台时按下收回托盘；长按自动重复已用「松手后才算新一次」过滤），
   键位存 `Settings.hotkey`（`null` = 关闭），设置页可录键修改；注册/注销全在 Rust 侧（`commands/hotkey.rs`），
   capabilities 不需开权限，键被其它程序占用时保存报错且保留旧键
 - `tauri-plugin-log` 仅保留 debug 终端输出；文件日志按 paim 引入自研 `infra/logging.rs`（`cdown.log` + `cdown-config.toml` 分级 + `CDOWN_LOG` 环境变量 + 前端 logger，见 日志使用说明.md）

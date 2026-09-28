@@ -109,8 +109,16 @@ pub fn run() {
             // with_handler 是「任意已注册热键被按下」的统一入口。
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, _shortcut, event| {
-                    if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-                        commands::hotkey::show_main_window(app);
+                    use tauri_plugin_global_shortcut::ShortcutState;
+                    let held = app.state::<commands::hotkey::HotkeyHeld>();
+                    match event.state() {
+                        // press() 为 true 才是「松手后的新一次按下」，长按的自动重复被忽略
+                        ShortcutState::Pressed => {
+                            if held.press() {
+                                commands::hotkey::toggle_main_window(app);
+                            }
+                        }
+                        ShortcutState::Released => held.release(),
                     }
                 })
                 .build(),
@@ -124,6 +132,7 @@ pub fn run() {
             std::fs::create_dir_all(&data_dir)?;
             app.manage(infra::store::Store::new(data_dir.join("cdown.json")));
             app.manage(commands::hotkey::RegisteredHotkey::default());
+            app.manage(commands::hotkey::HotkeyHeld::default());
             app.manage(commands::date_picker::DatePickerPayload::default());
             // 原生文件对话框（设置页的导出/导入选路径用）
             app.handle().plugin(tauri_plugin_dialog::init())?;
@@ -184,6 +193,7 @@ pub fn run() {
                     .on_tray_icon_event(|tray, event| {
                         // 左键单击按可见性 toggle：隐藏 → 显示并聚焦；可见 → 隐藏。
                         // 不能用 is_focused 参与判断：点击托盘时窗口已先失焦，恒走显示分支。
+                        // （热键的切换判定不同，见 commands::hotkey::toggle_main_window）
                         if let TrayIconEvent::Click {
                             button: MouseButton::Left,
                             button_state: MouseButtonState::Up,
@@ -193,7 +203,7 @@ pub fn run() {
                             let app = tray.app_handle();
                             if let Some(w) = app.get_webview_window("main") {
                                 if w.is_visible().unwrap_or(false) {
-                                    let _ = w.hide();
+                                    commands::hotkey::hide_main_window(app);
                                 } else {
                                     commands::hotkey::show_main_window(app);
                                 }
