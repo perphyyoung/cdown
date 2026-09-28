@@ -1,8 +1,9 @@
 # cdown
 
-Tauri 2 倒计时桌面小组件：表格样式列出倒计时项，剩余天数按可自定义的紧急度分级着色（默认 7 天紫 / 3 天黄 / 0 天橙（0 天级仅命中今天，突出当天）），过期标红。
-时间精度到天（不做秒级计时），资源占用优先。方案与取舍见 `cdown起步方案.md`，
-工程约定来自 `D:\py-code\paim\tauri2项目起步指南.md`（建议先读速查表）；日志的文件位置、级别开关与打点方式见 日志使用说明.md。
+Tauri 2 倒计时桌面小组件，表格样式列出倒计时项；
+时间精度到天（不做秒级计时），资源占用优先。功能与使用说明见 `README.md`。
+方案与取舍见 `cdown起步方案.md`，工程约定来自 `D:\py-code\paim\tauri2项目起步指南.md`（建议先读速查表）；
+UI/交互硬约定见 `design.md`；日志的文件位置、级别开关与打点方式见 日志使用说明.md。
 
 ## 项目规则
 
@@ -40,6 +41,4 @@ Tauri 2 倒计时桌面小组件：表格样式列出倒计时项，剩余天数
   测试平铺为 `<源文件>.test.rs`（源文件末尾 `#[cfg(test)] #[path]` 声明）；
   入口 `lib.rs` 的 `run()`。
 - 前端：`src/features/countdown/`（业务切片）+ `src/app/App.vue`；`logic.ts` 纯函数 + `logic.test.ts` 单测。
-- 窗口：无边框、置顶、不进任务栏；关闭/隐藏到托盘，退出走托盘菜单。
-- 开机自启：`tauri-plugin-autostart`，注册表 Run 项为唯一状态源（不进 Settings/导出导入）。
 - 存储：dev 在 `<项目根>/cdown-data/cdown.json`，release 在 `<app_config_dir>/cdown.json`（临时文件 + rename 原子写；`CDOWN_DATA_DIR` 可重定向）。
