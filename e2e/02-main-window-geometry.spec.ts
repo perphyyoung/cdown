@@ -28,8 +28,9 @@ test.describe("主窗口几何", () => {
     await disposeApp(app);
   });
 
-  test("连续重启后主窗口高度不变", async () => {
+  test("连续重启后主窗口宽高不变", async () => {
     const heights: number[] = [];
+    const widths: number[] = [];
     const trace: string[] = [];
 
     for (let round = 0; round <= 3; round++) {
@@ -40,6 +41,7 @@ test.describe("主窗口几何", () => {
       const size = await mainInnerSize(main);
       const state = readWindowState("main");
       heights.push(size.height);
+      widths.push(size.width);
       trace.push(
         `第${round}次启动 viewport=${size.width}x${size.height} dpr=${size.dpr} ` +
           `persisted=${state.width}x${state.height}`,
@@ -48,5 +50,6 @@ test.describe("主窗口几何", () => {
 
     e2eLog.info(`[win-size] ${trace.join(" | ")}`);
     expect(heights.at(-1)).toBe(heights[0]);
+    expect(widths.at(-1)).toBe(widths[0]);
   });
 });
