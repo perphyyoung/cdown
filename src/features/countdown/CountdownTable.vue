@@ -25,22 +25,19 @@ watch(
   (w) => Object.assign(local, w),
 );
 
-// inverted：左缘手柄，拖拽方向与宽度变化相反（向左拖 = 加宽）
 let drag: {
   col: keyof ColumnWidths;
   startX: number;
   startW: number;
-  inverted?: boolean;
 } | null = null;
 
-function onDown(col: keyof ColumnWidths, e: PointerEvent, inverted = false) {
-  drag = { col, startX: e.clientX, startW: local[col], inverted };
+function onDown(col: keyof ColumnWidths, e: PointerEvent) {
+  drag = { col, startX: e.clientX, startW: local[col] };
   (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 }
 function onMove(e: PointerEvent) {
   if (!drag) return;
-  const delta = drag.inverted ? drag.startX - e.clientX : e.clientX - drag.startX;
-  local[drag.col] = Math.round(Math.min(MAX, Math.max(MIN, drag.startW + delta)));
+  local[drag.col] = Math.round(Math.min(MAX, Math.max(MIN, drag.startW + e.clientX - drag.startX)));
 }
 function onUp() {
   if (!drag) return;
@@ -49,17 +46,13 @@ function onUp() {
 }
 
 // —— 表头列定义与列宽自适应（表头右键）——
-// 表头列定义：顺序即列顺序；sides 决定该列挂哪几根拖拽手柄（首列左缘多一根，拖拽方向相反）
+// 表头列定义：顺序即列顺序，每列右缘各挂一根拖拽手柄
 const HEADER_COLS = [
-  { key: "countdown", label: "倒计时", sides: ["left", "right"] },
-  { key: "target", label: "目标日期", sides: ["right"] },
-  { key: "name", label: "名称", sides: ["right"] },
-  { key: "note", label: "备注", sides: ["right"] },
-] as const satisfies readonly {
-  key: keyof ColumnWidths;
-  label: string;
-  sides: readonly ("left" | "right")[];
-}[];
+  { key: "countdown", label: "倒计时" },
+  { key: "target", label: "目标日期" },
+  { key: "name", label: "名称" },
+  { key: "note", label: "备注" },
+] as const satisfies readonly { key: keyof ColumnWidths; label: string }[];
 const COLUMN_KEYS = HEADER_COLS.map((c) => c.key);
 const GAP = 8; // grid gap-x-2
 const ROW_PAD = 8; // 行 px-1
@@ -206,8 +199,8 @@ function confirmRemove() {
     <!-- w-max 收缩为表格自然宽度 + mx-auto 左右居中：拖拽列宽时两侧间距始终相等；
          总宽超出窗口时 margin auto 归零、从左溢出滚动，行为与占满时一致 -->
     <div class="w-max mx-auto">
-      <!-- 手柄 -right-2.5 / -left-2.5 = -(手柄宽 w-3 的一半 6px + gap-x-2 的一半 4px)，
-           中心落在它分隔的列间隙中点（首尾两根落在表格外缘），
+      <!-- 手柄 -right-2.5 = -(手柄宽 w-3 的一半 6px + gap-x-2 的一半 4px)，
+           中心落在它与右邻列的间隙中点（末列右缘落在表格外缘），
            于是每列文字到左右竖线的距离恒等；两侧留白量见 COL_PAD -->
       <div
         class="group/head grid items-center gap-x-2 border-b border-slate-800 px-1 py-1 text-center text-xs text-slate-500"
@@ -221,12 +214,9 @@ function confirmRemove() {
           @contextmenu.prevent="openHeaderMenu($event, col.key)"
         >
           <span
-            v-for="side in col.sides"
-            :key="side"
-            class="group/col absolute top-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
-            :class="side === 'left' ? '-left-2.5' : '-right-2.5'"
+            class="group/col absolute top-0 -right-2.5 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
             title="拖拽调整列宽"
-            @pointerdown="onDown(col.key, $event, side === 'left')"
+            @pointerdown="onDown(col.key, $event)"
             @pointermove="onMove"
             @pointerup="onUp"
             @pointercancel="onUp"
