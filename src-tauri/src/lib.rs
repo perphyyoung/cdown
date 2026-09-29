@@ -225,6 +225,17 @@ pub fn run() {
             let _ = main_window.set_always_on_top(settings.always_on_top);
             let _ = main_window.show();
 
+            // 插件的尺寸恢复发生在窗口 show 之前（visible:false，尚无 DWM 帧），
+            // 此时 set_size 会多算一个 caption 高（本机实测 +30px）：被恢复的尺寸偏大，
+            // 退出时又按实际尺寸存回，形成每次重启都长高的棘轮（e2e 02 复现）。
+            // 窗口已显示后再恢复一次，走正常路径，尺寸才准确。
+            {
+                use tauri_plugin_window_state::{StateFlags, WindowExt};
+                if let Err(e) = main_window.restore_state(StateFlags::SIZE) {
+                    log_warn!("窗口尺寸二次恢复失败：{e}");
+                }
+            }
+
             // 全局热键：按设置注册（键被别的程序占用时只记日志，不影响启动）
             if let Err(e) = commands::hotkey::apply(app.handle(), settings.hotkey.as_deref()) {
                 log_warn!("全局热键注册失败：{e}");

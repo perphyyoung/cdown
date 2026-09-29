@@ -75,14 +75,15 @@ async function connectAppCdp(
 }
 
 /// spawn 一个应用实例并连上 CDP。数据目录隔离到 temp/e2e-<序号>（已 gitignore）
-export async function launchApp(seq = 0): Promise<AppHandle> {
+export async function launchApp(seq = 0, logLevel = "error"): Promise<AppHandle> {
   const dataDir = path.join(ROOT, "temp", `e2e-${seq}`);
   const cdpPort = await freePort();
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     CDOWN_DATA_DIR: dataDir,
-    // e2e 的断言只看 UI 与落盘文件，压掉应用日志噪声，避免污染共享的 cdown.log
-    CDOWN_LOG: "error",
+    // 断言只看 UI 与落盘文件，默认压掉应用日志噪声，避免污染共享的 cdown.log；
+    // 排查窗口几何等启动期行为时可显式传 info
+    CDOWN_LOG: logLevel,
     WEBVIEW2_USER_DATA_FOLDER: path.join(ROOT, "temp", "wv2-e2e"),
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${cdpPort}`,
   };
@@ -267,6 +268,28 @@ export function backgroundRgba(main: Page): Promise<[number, number, number, num
     const nums = (getComputedStyle(el!).backgroundColor.match(/[\d.]+/g) ?? []).map(Number);
     return [nums[0], nums[1], nums[2], nums[3] ?? 1] as [number, number, number, number];
   });
+}
+
+/// 主窗口视口尺寸（CSS 像素＝逻辑像素）与缩放比：用户肉眼看到的窗口大小
+export function mainInnerSize(page: Page): Promise<{ width: number; height: number; dpr: number }> {
+  return page.evaluate(() => ({
+    width: window.innerWidth,
+    height: window.innerHeight,
+    dpr: window.devicePixelRatio,
+  }));
+}
+
+/// 窗口状态文件：插件写在应用配置目录，与 CDOWN_DATA_DIR 重定向无关
+export function devWindowStatePath(): string {
+  return path.join(process.env.APPDATA ?? "", "com.cdown.perphyyoung", "window-state.dev.json");
+}
+
+/// 读某个窗口的持久化几何（插件在退出时写入）
+export function readWindowState(label: string): Record<string, unknown> {
+  const file = devWindowStatePath();
+  if (!fs.existsSync(file)) return {};
+  const raw = JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, Record<string, unknown>>;
+  return raw[label] ?? {};
 }
 
 /// 落盘的设置（cdown.json；文件不存在视为空，便于断言「还没写入」）
