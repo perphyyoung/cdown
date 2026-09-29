@@ -9,6 +9,9 @@
  */
 import { defineConfig } from "@playwright/test";
 
+// 测试侧日志级别（e2e-logger.ts）：默认 debug，全量落盘便于排查；嫌噪声多时临时改 warn
+process.env.CDOWN_E2E_LOG_LEVEL ??= "debug";
+
 export default defineConfig({
   testDir: import.meta.dirname,
   // 首个用例承担实例启动（spawn + CDP 就绪，典型 2~4 秒）

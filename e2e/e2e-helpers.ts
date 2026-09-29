@@ -9,6 +9,7 @@ import net from "node:net";
 import path from "node:path";
 import { execSync, spawn, type ChildProcess } from "node:child_process";
 import { chromium, expect, type Browser, type Page } from "@playwright/test";
+import { e2eLog, setWorkerTag } from "./e2e-logger";
 
 /// 项目根（e2e/ 的上一级）
 const ROOT = path.join(import.meta.dirname, "..");
@@ -75,21 +76,22 @@ async function connectAppCdp(
 }
 
 /// spawn 一个应用实例并连上 CDP。数据目录隔离到 temp/e2e-<序号>（已 gitignore）
-export async function launchApp(seq = 0, logLevel = "error"): Promise<AppHandle> {
+export async function launchApp(seq = 0): Promise<AppHandle> {
   const dataDir = path.join(ROOT, "temp", `e2e-${seq}`);
   const cdpPort = await freePort();
+  // 测试侧日志的实例标识（与 cdown.log 里应用侧的行交错时用于区分归属）
+  setWorkerTag(`w${process.env.TEST_WORKER_INDEX ?? "0"}-${seq + 1}`);
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     CDOWN_DATA_DIR: dataDir,
-    // 断言只看 UI 与落盘文件，默认压掉应用日志噪声，避免污染共享的 cdown.log；
-    // 排查窗口几何等启动期行为时可显式传 info
-    CDOWN_LOG: logLevel,
+    // 应用侧日志与测试侧同写 cdown.log：默认 info，按时间顺序读即可还原整轮时序
+    CDOWN_LOG: "info",
     WEBVIEW2_USER_DATA_FOLDER: path.join(ROOT, "temp", "wv2-e2e"),
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${cdpPort}`,
   };
   const child = spawn(exePath(), [], { cwd: ROOT, env, stdio: "ignore" });
-  child.on("error", (e) => console.error(`[app] spawn 失败: ${e.message}`));
-  child.on("exit", (code) => console.log(`[app] 进程退出: ${code}`));
+  child.on("error", (e) => e2eLog.error(`[app] spawn 失败：${e.message}`));
+  child.on("exit", (code) => e2eLog.info("[app] 进程退出", { code }));
   const browser = await connectAppCdp(cdpPort, child, 10_000);
   return { child, browser, dataDir, cdpPort, env };
 }
@@ -134,7 +136,7 @@ function removeDirBestEffort(dir: string): void {
     try {
       fs.renameSync(dir, `${dir}-stale-${Date.now()}`);
     } catch (e) {
-      console.warn(`[cleanup] 目录删除与改名均失败：${dir} — ${e}`);
+      e2eLog.warn(`[cleanup] 目录删除与改名均失败：${dir} — ${e}`);
     }
   }
 }
@@ -151,7 +153,7 @@ export async function restartApp(app: AppHandle): Promise<void> {
   // 端口 TIME_WAIT 与句柄释放留一点时间，Windows 上 taskkill 后句柄释放不是即时的
   await new Promise((r) => setTimeout(r, 1_500));
   const child = spawn(exePath(), [], { cwd: ROOT, env: app.env, stdio: "ignore" });
-  child.on("exit", (code) => console.log(`[restart] 进程退出: ${code}`));
+  child.on("exit", (code) => e2eLog.info("[restart] 进程退出", { code }));
   app.child = child;
   app.browser = await connectAppCdp(app.cdpPort, child, 12_000);
 }
