@@ -7,7 +7,7 @@ UI/交互硬约定见 `design.md`；日志的文件位置、级别开关与打�
 
 ## 项目规则
 
-- 修改代码后，**先**执行 `pnpm check` 验证（format → build:rs → gen:bindings → typecheck → build），通过后再按需跑 `pnpm test`（全部单元测试，含前后端）/ `sentrux check .` / `pnpm e2e`；验证通过才输出**单独一行**的简要的一句话 git commit 信息，方便复制。不要跳过 `pnpm check` 直接跑其它命令
+- 修改代码后，**先**执行 `pnpm check` 验证（format → build:rs → gen:bindings → typecheck → build），通过后再按需跑 `pnpm test`（全部单元测试，含前后端）/ `sentrux check .` / `pnpm e2e`；验证通过才输出**代码块形式的**简要的一句话 git commit 信息（用 ` ```text ` 代码块单独包一行），方便复制。不要跳过 `pnpm check` 直接跑其它命令
 
 ## 命令约定
 
