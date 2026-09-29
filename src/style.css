@@ -14,6 +14,18 @@ body {
   background: transparent;
 }
 
+/* 全局字体：设置页「字体家族」写入 --font-family 覆盖；空值/未设置时用默认栈。
+   挂在 html 上（不是 body）——VueDatePicker 的弹层 teleport 到 body 之外，也要继承到。
+   置于 @tailwind 之后，同层规则后者生效，覆盖 preflight 的默认字体栈。 */
+:root {
+  --font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", Roboto, Arial, sans-serif;
+}
+
+html {
+  font-family: var(--font-family);
+}
+
 /* VueDatePicker 适配（v14：结构变量在 :root，颜色变量在主题类上） */
 :root {
   --dp-font-size: 12px;

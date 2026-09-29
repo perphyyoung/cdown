@@ -18,6 +18,11 @@ export const commands = {
 	 *  会死锁（官方文档明确警告，命令/事件处理器里要改用 async 或独立线程）。
 	 */
 	openSettings: () => __TAURI_INVOKE<null>("open_settings"),
+	/**
+	 *  字体中文名映射（数据目录 `font-family-map.toml`，缺失时写入默认模板）。
+	 *  仅用于设置页下拉的显示文案，失败回落内置默认映射、不报错。
+	 */
+	getFontFamilyMap: () => __TAURI_INVOKE<{ [key in string]: string }>("get_font_family_map"),
 	/**  导出全部倒计时项（不含设置）。 */
 	exportItems: (path: string) => __TAURI_INVOKE<null>("export_items", { path }),
 	/**  导入倒计时（替换现有全部倒计时项，设置不动）。 */
@@ -92,6 +97,11 @@ export type Settings = {
 	background_opacity?: number,
 	/**  主窗口背景色 `#RRGGBB`；非法值回落默认色 */
 	background_color?: string,
+	/**
+	 *  全局字体家族：完整 CSS font-family 值（如 `"Microsoft YaHei", sans-serif`）；
+	 *  空串 = 跟随系统默认栈（旧数据缺字段即落这里，行为不变）
+	 */
+	font_family?: string,
 };
 
 /**  紧急度分级：剩余天数 ≤ threshold_days 时该行采用 color 显示（含当天 days = 0）。 */

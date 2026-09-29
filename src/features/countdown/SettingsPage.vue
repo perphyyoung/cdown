@@ -11,7 +11,8 @@ import ConfirmDialog from "@/components/ConfirmDialog.vue";
 import SettingsRow from "./SettingsRow.vue";
 import SettingsToggle from "./SettingsToggle.vue";
 import { countdownState, DEFAULT_BACKGROUND_COLOR } from "./useCountdown";
-import type { UrgencyLevel } from "./logic";
+import { FONT_CANDIDATES, extractFamily, fontDisplayName } from "./logic";
+import type { FontOption, UrgencyLevel } from "./logic";
 
 // 独立设置窗口的根视图：与主窗口各自持有状态副本，保存后广播刷新
 const { settings, ready, error, reload, saveSettings } = countdownState();
@@ -69,7 +70,99 @@ onMounted(() => {
     .then((on) => (autostart.value = on))
     .catch((e) => (error.value = String(e)));
   void fitHeight();
+  void loadFontOptions();
 });
+
+// —— 字体家族：控制全部窗口的字体（不需要等宽，故只有一个下拉） ——
+// 中文名映射来自数据目录 font-family-map.toml（后端首次读取自动写默认模板）
+const fontNames = ref<Record<string, string>>({});
+const fontOptions = ref<FontOption[]>([]);
+// Canvas 测量法结果缓存（同一次会话内同一族名只测一次）
+const measureCache = new Map<string, boolean>();
+
+/**
+ * Canvas 测量法：字体存在时三个基准都渲染目标字体、宽度相等；
+ * 不存在时回退到三个不同基准、宽度互异。
+ * 官方 FontFaceSet.check() 对不存在的字体也返回 true，不能用。
+ */
+function isInstalledByMeasure(family: string): boolean {
+  const cached = measureCache.get(family);
+  if (cached !== undefined) return cached;
+  const ctx = document.createElement("canvas").getContext("2d");
+  if (!ctx) return true;
+  const text = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const fontSpec = `72px "${family}"`;
+  ctx.font = `${fontSpec}, serif`;
+  const wSerif = ctx.measureText(text).width;
+  ctx.font = `${fontSpec}, sans-serif`;
+  const wSans = ctx.measureText(text).width;
+  ctx.font = `${fontSpec}, monospace`;
+  const wMono = ctx.measureText(text).width;
+  const installed = wSerif === wSans && wSans === wMono;
+  measureCache.set(family, installed);
+  return installed;
+}
+
+/**
+ * 构建字体下拉项：优先用 Local Font Access API 枚举本机字体，
+ * 未授权/不支持时回退候选表（按 Canvas 测量法过滤掉没装的）。
+ * 设置页是独立窗口，字体本就要跨窗口生效，故枚举放在这里而非主窗口。
+ */
+async function loadFontOptions() {
+  // 先取中文名映射再建列表，避免列表构建时映射未就绪
+  fontNames.value = await commands.getFontFamilyMap().catch((e: unknown) => {
+    log.warn("[font] 读取字体中文名映射失败", String(e));
+    return {};
+  });
+  // 先铺候选表兜底：枚举被拒或迟迟不返回时下拉也不会空着，成功后再整体替换
+  fontOptions.value = FONT_CANDIDATES.filter((f) => {
+    if (!f.value) return true;
+    const family = extractFamily(f.value);
+    return family ? isInstalledByMeasure(family) : true;
+  });
+  const withFonts = window as unknown as {
+    queryLocalFonts?: () => Promise<Array<{ family: string }>>;
+  };
+  if (typeof withFonts.queryLocalFonts === "function") {
+    try {
+      const fonts = await withFonts.queryLocalFonts();
+      const families = [...new Set(fonts.map((f) => f.family))].sort((a, b) =>
+        a.localeCompare(b, "zh-Hans-CN"),
+      );
+      fontOptions.value = [
+        { value: "", label: "跟随系统" },
+        ...families.map((family) => ({
+          value: `"${family}", sans-serif`,
+          label: fontDisplayName(family, fontNames.value),
+        })),
+      ];
+    } catch (e) {
+      log.warn("[font] 枚举本机字体失败，保留候选表", String(e));
+    }
+  }
+}
+
+// 下拉项：当前值不在列表里（字体被卸载、枚举失败等）时补一项，
+// 否则 select 会显示为空，看起来像设置丢了
+const fontSelectOptions = computed<FontOption[]>(() => {
+  const current = settings.value.fontFamily;
+  if (!current || fontOptions.value.some((f) => f.value === current)) return fontOptions.value;
+  const family = extractFamily(current);
+  return [
+    { value: current, label: family ? fontDisplayName(family, fontNames.value) : current },
+    ...fontOptions.value,
+  ];
+});
+
+async function onFontFamilyChange(value: string) {
+  try {
+    await saveSettings({ fontFamily: value });
+    await emit("settings-changed", null);
+    msg.value = "字体已更新";
+  } catch (e) {
+    error.value = String(e);
+  }
+}
 
 function fileStamp(): string {
   const d = new Date();
@@ -438,6 +531,24 @@ const btnSmCls =
     </header>
     <div class="p-4">
       <dl class="divide-y divide-slate-700">
+        <div class="flex items-center justify-between gap-3 py-3">
+          <div class="min-w-0">
+            <dt class="text-slate-300">字体家族</dt>
+            <dd class="text-sm text-slate-500">
+              主窗口、设置页与日历弹窗的全部字体；跟随系统即用默认字体栈
+            </dd>
+          </div>
+          <select
+            class="max-w-[60%] shrink-0 rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm text-slate-200"
+            :value="settings.fontFamily"
+            @change="onFontFamilyChange(($event.target as HTMLSelectElement).value)"
+          >
+            <option v-for="f in fontSelectOptions" :key="f.value" :value="f.value">
+              {{ f.label }}
+            </option>
+          </select>
+        </div>
+
         <div class="flex items-center justify-between gap-3 py-3">
           <div class="min-w-0">
             <dt class="text-slate-300">主界面背景色</dt>

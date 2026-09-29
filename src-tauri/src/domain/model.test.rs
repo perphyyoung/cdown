@@ -87,6 +87,7 @@ fn settings_normalized_sorts_dedupes_and_fixes_colors() {
         hotkey: None,
         background_opacity: 100,
         background_color: DEFAULT_BACKGROUND_COLOR.into(),
+        font_family: String::new(),
     }
     .normalized();
     let thresholds: Vec<u32> = s.levels.iter().map(|l| l.threshold_days).collect();
@@ -109,6 +110,7 @@ fn settings_normalized_caps_levels() {
         hotkey: None,
         background_opacity: 100,
         background_color: DEFAULT_BACKGROUND_COLOR.into(),
+        font_family: String::new(),
     }
     .normalized();
     assert_eq!(s.levels.len(), 6);
@@ -130,6 +132,40 @@ fn background_opacity_clamps() {
     }
     .normalized();
     assert_eq!(s.background_opacity, 55);
+}
+
+#[test]
+fn font_family_normalized_trims_and_falls_back() {
+    // 合法值：去空白后原样保留
+    let s = Settings {
+        font_family: "  \"Microsoft YaHei\", sans-serif  ".into(),
+        ..Settings::default()
+    }
+    .normalized();
+    assert_eq!(s.font_family, "\"Microsoft YaHei\", sans-serif");
+    // 空串 = 跟随系统
+    let s = Settings {
+        font_family: "   ".into(),
+        ..Settings::default()
+    }
+    .normalized();
+    assert_eq!(s.font_family, "");
+    // 可逃出 font-family 值的字符与超长值：一律回落空串
+    let too_long = "a".repeat(201);
+    for bad in [
+        "sans; color: red",
+        "a { b }",
+        "a\\b",
+        "a\nb",
+        too_long.as_str(),
+    ] {
+        let s = Settings {
+            font_family: bad.into(),
+            ..Settings::default()
+        }
+        .normalized();
+        assert_eq!(s.font_family, "", "非法字体值 {bad} 应回落空串");
+    }
 }
 
 #[test]

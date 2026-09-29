@@ -85,3 +85,36 @@ export function formatDays(days: number): string {
   if (days === 1) return "明天";
   return `${days} 天`;
 }
+
+/** 字体下拉项：value 为可直接写入 font-family 的 CSS 值，空串 = 跟随系统默认栈 */
+export interface FontOption {
+  value: string;
+  label: string;
+}
+
+/** 候选字体表：queryLocalFonts 不可用（未授权/不支持）时的回退，用前按 Canvas 测量法过滤 */
+export const FONT_CANDIDATES: FontOption[] = [
+  { value: "", label: "跟随系统" },
+  { value: '"Segoe UI", sans-serif', label: "Segoe UI" },
+  { value: '"Microsoft YaHei", sans-serif', label: "微软雅黑 (Microsoft YaHei)" },
+  { value: '"PingFang SC", sans-serif', label: "苹方 (PingFang SC)" },
+  { value: "Roboto, sans-serif", label: "Roboto" },
+  { value: "Arial, sans-serif", label: "Arial" },
+  { value: '"Helvetica Neue", sans-serif', label: "Helvetica Neue" },
+  { value: '"Noto Sans SC", sans-serif', label: "思源黑体 (Noto Sans SC)" },
+];
+
+/**
+ * 提取 CSS font-family 值里的第一个族名（兼容带引号与不带引号）：
+ * `"Microsoft YaHei", sans-serif` → `Microsoft YaHei`；空串/纯关键字 → null。
+ */
+export function extractFamily(cssValue: string): string | null {
+  const match = cssValue.match(/"([^"]+)"|^([^,\s]+)/);
+  return match?.[1] ?? match?.[2] ?? null;
+}
+
+/** 字体显示名：优先中文名（font-family-map.toml）并附英文原文便于识别；无映射保持英文 */
+export function fontDisplayName(family: string, map: Record<string, string>): string {
+  const zh = map[family];
+  return zh ? `${zh} (${family})` : family;
+}

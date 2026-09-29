@@ -46,6 +46,19 @@ void listen("settings-changed", () => {
 }).then((u) => unlisteners.push(u));
 onUnmounted(() => unlisteners.forEach((u) => u()));
 
+// 全局字体：写入 CSS 变量，空值回落默认栈（style.css 的 :root 默认）。
+// 放在窗口分支之外——主窗口、设置页、日历弹窗共用本组件，三处一起生效。
+// 取值走 --font-family 而非直接设 style.fontFamily：默认栈留在 CSS 里，JS 只负责覆盖。
+watch(
+  () => settings.value.fontFamily,
+  (v) => {
+    const style = document.documentElement.style;
+    if (v) style.setProperty("--font-family", v);
+    else style.removeProperty("--font-family");
+  },
+  { immediate: true },
+);
+
 // 置顶：单一数据源是 Settings——图钉按钮只改设置，此处 watch 把它同步到窗口
 // 实际状态（设置导入后经 settings-changed → reload 也会走到这里）。仅主窗口执行：
 // 设置/日历窗口共用本组件，否则会把它们自身的置顶状态改掉。

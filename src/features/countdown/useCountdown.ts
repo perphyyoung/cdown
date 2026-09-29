@@ -42,6 +42,8 @@ interface SettingsView {
   backgroundOpacity: number;
   /** 主窗口背景色 `#RRGGBB` */
   backgroundColor: string;
+  /** 全局字体家族（完整 CSS font-family 值）；空串 = 跟随系统默认栈 */
+  fontFamily: string;
 }
 
 // bindings 里字段因 Rust 侧 serde(default) 导出为可选，读取前先归一化
@@ -68,6 +70,7 @@ function normalizeSettings(cfg: Settings): SettingsView {
     hotkey: cfg.hotkey ?? null,
     backgroundOpacity: cfg.background_opacity ?? 100,
     backgroundColor: cfg.background_color ?? DEFAULT_BACKGROUND_COLOR,
+    fontFamily: cfg.font_family ?? "",
   };
 }
 
@@ -84,6 +87,7 @@ const settings = ref<SettingsView>({
   hotkey: null,
   backgroundOpacity: 100,
   backgroundColor: DEFAULT_BACKGROUND_COLOR,
+  fontFamily: "",
 });
 const today = ref(todayStr());
 const ready = ref(false);
@@ -138,6 +142,7 @@ async function saveSettings(patch: {
   hotkey?: string | null;
   backgroundOpacity?: number;
   backgroundColor?: string;
+  fontFamily?: string;
 }) {
   const next: Settings = {
     levels: (patch.levels ?? settings.value.levels).map((l) => ({
@@ -152,6 +157,8 @@ async function saveSettings(patch: {
     hotkey: "hotkey" in patch ? (patch.hotkey ?? null) : settings.value.hotkey,
     background_opacity: Math.round(patch.backgroundOpacity ?? settings.value.backgroundOpacity),
     background_color: patch.backgroundColor ?? settings.value.backgroundColor,
+    // 字体家族：空串是合法取值（跟随系统），`??` 只在 undefined 时兜底，不会吞掉它
+    font_family: patch.fontFamily ?? settings.value.fontFamily,
   };
   settings.value = normalizeSettings(await commands.setSettings(next));
 }

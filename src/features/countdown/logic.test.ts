@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   daysUntil,
+  extractFamily,
+  fontDisplayName,
   formatDays,
   hexToRgba,
   roundColumnWidths,
@@ -126,5 +128,27 @@ describe("todayStr", () => {
   it("按本地日期补零输出 YYYY-MM-DD", () => {
     expect(todayStr(new Date(2026, 8, 26))).toBe("2026-09-26");
     expect(todayStr(new Date(2026, 0, 5))).toBe("2026-01-05");
+  });
+});
+
+describe("extractFamily", () => {
+  it("取第一个族名，带引号与不带引号都支持", () => {
+    expect(extractFamily('"Microsoft YaHei", sans-serif')).toBe("Microsoft YaHei");
+    expect(extractFamily("Roboto, sans-serif")).toBe("Roboto");
+    expect(extractFamily('"PingFang SC"')).toBe("PingFang SC");
+  });
+
+  it("空串无族名", () => {
+    expect(extractFamily("")).toBeNull();
+  });
+});
+
+describe("fontDisplayName", () => {
+  const map = { "Microsoft YaHei": "微软雅黑" };
+
+  it("有映射附中文名，无映射保持英文", () => {
+    expect(fontDisplayName("Microsoft YaHei", map)).toBe("微软雅黑 (Microsoft YaHei)");
+    expect(fontDisplayName("Consolas", map)).toBe("Consolas");
+    expect(fontDisplayName("Consolas", {})).toBe("Consolas");
   });
 });

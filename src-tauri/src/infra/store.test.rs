@@ -72,6 +72,7 @@ fn save_then_reload_keeps_settings() {
                 hotkey: Some("Ctrl+Alt+K".into()),
                 background_opacity: 100,
                 background_color: "#0f172a".into(),
+                font_family: "\"SimSun\", serif".into(),
             };
             Ok(())
         })

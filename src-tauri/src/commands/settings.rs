@@ -1,11 +1,14 @@
 //! 设置命令：紧急度分级与表格列宽；设置窗口的创建/唤起。
 
+use std::collections::BTreeMap;
+
 use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
 use crate::commands::hotkey;
 use crate::domain::error::CommandError;
 use crate::domain::model::Settings;
-use crate::infra::store::{Store, StoreData};
+use crate::infra::font_map;
+use crate::infra::store::{data_dir, Store, StoreData};
 use crate::log_warn;
 
 pub const SETTINGS_WINDOW_LABEL: &str = "settings";
@@ -78,4 +81,12 @@ pub fn set_settings(
         return Err(e);
     }
     Ok(settings)
+}
+
+/// 字体中文名映射（数据目录 `font-family-map.toml`，缺失时写入默认模板）。
+/// 仅用于设置页下拉的显示文案，失败回落内置默认映射、不报错。
+#[tauri::command]
+#[specta::specta]
+pub fn get_font_family_map(app: AppHandle) -> BTreeMap<String, String> {
+    font_map::load_or_create(&data_dir(&app))
 }
