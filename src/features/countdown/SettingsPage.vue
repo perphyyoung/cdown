@@ -302,6 +302,18 @@ async function onAutostartChange(next: boolean) {
   }
 }
 
+// 背景透明度：input 即保存广播（设置窗口与主窗口状态隔离，无法本地预览不落盘），
+// 写盘是小 JSON，与分级编辑「每次修改整表提交」的先例一致
+async function onOpacityChange(v: number) {
+  try {
+    await saveSettings({ backgroundOpacity: v });
+    await emit("settings-changed", null);
+    error.value = "";
+  } catch (e) {
+    error.value = String(e);
+  }
+}
+
 const btnCls =
   "shrink-0 rounded border border-slate-600 px-3 py-1 text-sm text-slate-200 hover:bg-slate-700";
 const btnSmCls =
@@ -330,6 +342,28 @@ const btnSmCls =
     </header>
     <div class="p-4">
       <dl class="divide-y divide-slate-700">
+        <div class="flex items-center justify-between gap-3 py-3">
+          <div class="min-w-0">
+            <dt class="text-slate-300">背景透明度</dt>
+            <dd class="text-sm text-slate-500">
+              主窗口背景不透明程度，值越小透出桌面越多（下限 10%）
+            </dd>
+          </div>
+          <div class="flex shrink-0 items-center gap-2">
+            <input
+              type="range"
+              min="10"
+              max="100"
+              :value="settings.backgroundOpacity"
+              class="w-32 accent-slate-400"
+              @input="onOpacityChange(Number(($event.target as HTMLInputElement).value))"
+            />
+            <span class="w-10 text-right text-sm text-slate-400">
+              {{ settings.backgroundOpacity }}%
+            </span>
+          </div>
+        </div>
+
         <div class="flex items-center justify-between gap-3 py-3">
           <div class="min-w-0">
             <dt class="flex items-center gap-2 text-slate-300">

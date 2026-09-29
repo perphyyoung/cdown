@@ -70,6 +70,13 @@ fn default_hotkey() -> Option<String> {
     Some(DEFAULT_HOTKEY.into())
 }
 
+/// 主窗口背景透明度下限：低于此值窗口几乎不可见，无实际意义
+pub const MIN_OPACITY: u8 = 10;
+
+fn default_opacity() -> u8 {
+    100
+}
+
 fn default_levels() -> Vec<UrgencyLevel> {
     vec![
         UrgencyLevel {
@@ -111,6 +118,9 @@ pub struct Settings {
     /// 字段缺失（旧数据）回落默认键，显式 null 表示用户关闭 —— serde 只在缺失时用 default。
     #[serde(default = "default_hotkey")]
     pub hotkey: Option<String>,
+    /// 主窗口背景透明度（%），10–100；旧数据缺字段按不透明处理
+    #[serde(default = "default_opacity")]
+    pub background_opacity: u8,
 }
 
 impl Default for Settings {
@@ -120,6 +130,7 @@ impl Default for Settings {
             column_widths: ColumnWidths::default(),
             always_on_top: true,
             hotkey: default_hotkey(),
+            background_opacity: default_opacity(),
         }
     }
 }
@@ -152,6 +163,8 @@ impl Settings {
             .hotkey
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty());
+        // 透明度：夹到 10–100
+        self.background_opacity = self.background_opacity.clamp(MIN_OPACITY, 100);
         self
     }
 }

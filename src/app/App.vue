@@ -88,7 +88,12 @@ async function saveSettings(patch: {
 <template>
   <DatePickerWindow v-if="isDatePickerWindow" />
   <SettingsPage v-else-if="isSettingsWindow" />
-  <div v-else class="flex h-full select-none flex-col bg-slate-900 text-slate-100">
+  <!-- 主窗口背景透明度可调（slate-900 的 RGB），设置页保存后经 settings-changed 即时生效 -->
+  <div
+    v-else
+    class="flex h-full select-none flex-col text-slate-100"
+    :style="{ backgroundColor: `rgba(15, 23, 42, ${settings.backgroundOpacity / 100})` }"
+  >
     <!-- 标题栏：无边框窗口拖动区 + 添加/设置/隐藏按钮 -->
     <header class="relative flex h-8 shrink-0 items-center" data-tauri-drag-region>
       <img src="/icon.png" alt="cdown" class="ml-2 h-4 w-4 select-none" draggable="false" />

@@ -38,6 +38,8 @@ interface SettingsView {
   alwaysOnTop: boolean;
   /** 全局热键 accelerator（如 Ctrl+Alt+C）；null = 关闭热键 */
   hotkey: string | null;
+  /** 主窗口背景透明度（%），10–100 */
+  backgroundOpacity: number;
 }
 
 // bindings 里字段因 Rust 侧 serde(default) 导出为可选，读取前先归一化
@@ -60,6 +62,7 @@ function normalizeSettings(cfg: Settings): SettingsView {
     },
     alwaysOnTop: cfg.always_on_top ?? true,
     hotkey: cfg.hotkey ?? null,
+    backgroundOpacity: cfg.background_opacity ?? 100,
   };
 }
 
@@ -74,6 +77,7 @@ const settings = ref<SettingsView>({
   column_widths: { ...DEFAULT_WIDTHS },
   alwaysOnTop: true,
   hotkey: null,
+  backgroundOpacity: 100,
 });
 const today = ref(todayStr());
 const ready = ref(false);
@@ -126,6 +130,7 @@ async function saveSettings(patch: {
   columnWidths?: ColumnWidths;
   alwaysOnTop?: boolean;
   hotkey?: string | null;
+  backgroundOpacity?: number;
 }) {
   const next: Settings = {
     levels: (patch.levels ?? settings.value.levels).map((l) => ({
@@ -138,6 +143,7 @@ async function saveSettings(patch: {
     // 热键必须显式带上：字段缺失会被后端 serde default 填回默认键，
     // 故用 in 判别「未修改」与「关闭热键（null）」
     hotkey: "hotkey" in patch ? (patch.hotkey ?? null) : settings.value.hotkey,
+    background_opacity: Math.round(patch.backgroundOpacity ?? settings.value.backgroundOpacity),
   };
   settings.value = normalizeSettings(await commands.setSettings(next));
 }

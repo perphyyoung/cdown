@@ -1,4 +1,4 @@
-use super::{ColumnWidths, CountdownItem, Settings, UrgencyLevel, DEFAULT_HOTKEY};
+use super::{ColumnWidths, CountdownItem, Settings, UrgencyLevel, DEFAULT_HOTKEY, MIN_OPACITY};
 
 fn level(days: u32, color: &str) -> UrgencyLevel {
     UrgencyLevel {
@@ -23,6 +23,8 @@ fn settings_default_is_three_levels() {
     assert_eq!(s.levels, Settings::default().levels);
     assert!(s.always_on_top);
     assert_eq!(s.hotkey.as_deref(), Some(DEFAULT_HOTKEY));
+    // 透明度缺字段回落不透明
+    assert_eq!(s.background_opacity, 100);
 }
 
 #[test]
@@ -78,6 +80,7 @@ fn settings_normalized_sorts_dedupes_and_fixes_colors() {
         column_widths: ColumnWidths::default(),
         always_on_top: true,
         hotkey: None,
+        background_opacity: 100,
     }
     .normalized();
     let thresholds: Vec<u32> = s.levels.iter().map(|l| l.threshold_days).collect();
@@ -98,10 +101,28 @@ fn settings_normalized_caps_levels() {
         column_widths: ColumnWidths::default(),
         always_on_top: true,
         hotkey: None,
+        background_opacity: 100,
     }
     .normalized();
     assert_eq!(s.levels.len(), 6);
     assert_eq!(s.levels[0].threshold_days, 10); // 降序后保留阈值最大的 6 级
+}
+
+#[test]
+fn background_opacity_clamps() {
+    // 过低夹到下限，非法大值夹到 100
+    let s = Settings {
+        background_opacity: 3,
+        ..Settings::default()
+    }
+    .normalized();
+    assert_eq!(s.background_opacity, MIN_OPACITY);
+    let s = Settings {
+        background_opacity: 55, // 合法值原样保留
+        ..Settings::default()
+    }
+    .normalized();
+    assert_eq!(s.background_opacity, 55);
 }
 
 #[test]

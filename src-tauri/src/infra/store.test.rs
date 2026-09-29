@@ -70,6 +70,7 @@ fn save_then_reload_keeps_settings() {
                 column_widths: ColumnWidths::default(),
                 always_on_top: false,
                 hotkey: Some("Ctrl+Alt+K".into()),
+                background_opacity: 100,
             };
             Ok(())
         })

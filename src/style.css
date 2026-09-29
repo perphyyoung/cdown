@@ -10,7 +10,8 @@ body,
 
 body {
   margin: 0;
-  background: #0f172a;
+  /* 窗口透明由各窗口根节点控制（主窗口背景透明度可调），body 不得挡住 */
+  background: transparent;
 }
 
 /* VueDatePicker 适配（v14：结构变量在 :root，颜色变量在主题类上） */
