@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onUnmounted, watch } from "vue";
+import { onUnmounted, ref, watch } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import CountdownTable from "@/features/countdown/CountdownTable.vue";
@@ -34,8 +34,16 @@ const isSettingsWindow = windowLabel === "settings";
 const isDatePickerWindow = windowLabel === "date-picker";
 
 let unlisteners: UnlistenFn[] = [];
-// 设置窗口保存后广播，主窗口重拉设置
-void listen("settings-changed", () => void reload()).then((u) => (unlisteners = [u]));
+// 背景色预览：设置窗口拖取色器时只改色不落盘，落盘以 settings-changed 为准
+const previewColor = ref<string | null>(null);
+void listen<string>("background-preview", (e) => (previewColor.value = e.payload)).then((u) =>
+  unlisteners.push(u),
+);
+// 设置窗口保存后广播，主窗口重拉设置；同时清掉预览，避免预览值盖住刚保存的值
+void listen("settings-changed", () => {
+  previewColor.value = null;
+  void reload();
+}).then((u) => unlisteners.push(u));
 onUnmounted(() => unlisteners.forEach((u) => u()));
 
 // 置顶：单一数据源是 Settings——图钉按钮只改设置，此处 watch 把它同步到窗口
@@ -89,11 +97,16 @@ async function saveSettings(patch: {
 <template>
   <DatePickerWindow v-if="isDatePickerWindow" />
   <SettingsPage v-else-if="isSettingsWindow" />
-  <!-- 主窗口背景色/透明度可调，设置页保存后经 settings-changed 即时生效 -->
+  <!-- 主窗口背景色/透明度可调：预览值优先（取色器打开期间实时），否则用已保存值 -->
   <div
     v-else
     class="flex h-full select-none flex-col text-slate-100"
-    :style="{ backgroundColor: hexToRgba(settings.backgroundColor, settings.backgroundOpacity) }"
+    :style="{
+      backgroundColor: hexToRgba(
+        previewColor ?? settings.backgroundColor,
+        settings.backgroundOpacity,
+      ),
+    }"
   >
     <!-- 标题栏：无边框窗口拖动区 + 添加/设置/隐藏按钮 -->
     <header class="relative flex h-8 shrink-0 items-center" data-tauri-drag-region>

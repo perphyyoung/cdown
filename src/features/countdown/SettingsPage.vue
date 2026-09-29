@@ -302,16 +302,117 @@ async function onAutostartChange(next: boolean) {
   }
 }
 
-// 主界面背景色：@change（非 @input）触发，避免拉取色器时高频写盘
-async function onBackgroundColorChange(color: string) {
+// —— 主界面背景色：input 实时预览（不落盘），取色器关闭才提交 ——
+// （MDN 对 <input type="color"> 的标准分工：input 每次颜色变化触发，change 关闭取色器时触发）
+const previewColor = ref<string | null>(null);
+// 撤销目标：最近一次落盘前的颜色；null 表示无可撤销，用完即失效（单步撤销）
+const undoColor = ref<string | null>(null);
+// 会话中被放弃的颜色（会话中点了撤销/重置）：取色器关闭时不再提交它；null 表示未放弃
+const discardedColor = ref<string | null>(null);
+const colorInput = ref<HTMLInputElement | null>(null);
+
+/**
+ * 色块显示与撤销判断的唯一依据：预览优先。
+ * 色块的 :value 必须绑它而不能绑 settings.backgroundColor——拖动期间每次重渲染，
+ * Vue 都会拿 DOM 里已更新的新色与仍是旧色的 vnode 值比较，把色块打回旧色。
+ */
+const shownColor = computed(() => previewColor.value ?? settings.value.backgroundColor);
+// 取色器里改了色但还没关（未落盘）也算一次可撤销的改动，故改色瞬间就显示撤销
+const pendingChange = computed(
+  () => previewColor.value !== null && previewColor.value !== settings.value.backgroundColor,
+);
+const canUndo = computed(
+  () => pendingChange.value || (undoColor.value !== null && shownColor.value !== undoColor.value),
+);
+
+function onBackgroundColorInput(color: string) {
+  // 放弃后又选了不同的颜色，说明用户改主意了，恢复本会话
+  if (discardedColor.value !== null && color !== discardedColor.value) discardedColor.value = null;
+  log.info("[bg-color] input", color);
+  previewColor.value = color;
+  void emit("background-preview", color);
+}
+
+async function persistBackgroundColor(color: string): Promise<boolean> {
   try {
     await saveSettings({ backgroundColor: color });
     await emit("settings-changed", null);
     error.value = "";
+    return true;
   } catch (e) {
     error.value = String(e);
+    return false;
   }
 }
+
+/** 放弃当前取色会话：撤回预览，取色器关闭时不再提交它的颜色 */
+function discardColorSession() {
+  discardedColor.value = previewColor.value;
+  previewColor.value = null;
+  void emit("background-preview", settings.value.backgroundColor);
+}
+
+/**
+ * 取色器关闭收口：一律以输入框的 DOM 实际值为准。
+ * change 与窗口重获焦点都走这里，幂等；不依赖 change 一定触发，也不依赖拖动期间有过 input。
+ */
+async function closeColorSession(source: string) {
+  const picked = colorInput.value?.value;
+  const before = settings.value.backgroundColor;
+  const previewed = previewColor.value;
+  previewColor.value = null;
+  if (discardedColor.value !== null) {
+    // 会话已被撤销/重置放弃：取色器关闭时会把颜色重新推给 input（并再次广播预览），
+    // 这里统一把主窗口拉回已保存色，色块由 shownColor 自动跟回
+    discardedColor.value = null;
+    void emit("background-preview", before);
+    log.info("[bg-color] discard", source, picked, before);
+    return;
+  }
+  if (!picked || picked === before) {
+    // 无变化：值被回退，或焦点回来的空转
+    if (previewed !== null) void emit("background-preview", before);
+    return;
+  }
+  log.info("[bg-color] close", source, picked, before);
+  if (await persistBackgroundColor(picked)) {
+    undoColor.value = before; // 整段拖动记为一步
+  } else {
+    void emit("background-preview", before);
+  }
+}
+
+// 重置：撤销目标是重置前的颜色。会话中点击则先放弃未落盘的取色
+async function onBackgroundColorReset() {
+  const before = settings.value.backgroundColor;
+  if (previewColor.value !== null) discardColorSession();
+  if (before === DEFAULT_BACKGROUND_COLOR) return;
+  if (await persistBackgroundColor(DEFAULT_BACKGROUND_COLOR)) undoColor.value = before;
+}
+
+// 撤销：会话中撤回预览（不落盘），会话外回到 undoColor，用完即失效
+async function onBackgroundColorUndo() {
+  if (pendingChange.value) {
+    discardColorSession();
+    return;
+  }
+  const back = undoColor.value;
+  previewColor.value = null;
+  if (!back || back === settings.value.backgroundColor) return;
+  undoColor.value = null;
+  // 色块由 shownColor 驱动（:value 绑它），无需手写 el.value
+  if (!(await persistBackgroundColor(back))) {
+    void emit("background-preview", settings.value.backgroundColor);
+  }
+}
+
+// 兜底触发：取色器非模态，关闭它本身不改变窗口焦点（收口靠 change）；
+// 这里只覆盖窗口重新获得焦点的场景（如从其它应用切回），语义与 change 一致且幂等。
+function onWindowFocus() {
+  void closeColorSession("focus");
+}
+window.addEventListener("focus", onWindowFocus);
+onUnmounted(() => window.removeEventListener("focus", onWindowFocus));
 
 // 背景透明度：input 即保存广播（设置窗口与主窗口状态隔离，无法本地预览不落盘），
 // 写盘是小 JSON，与分级编辑「每次修改整表提交」的先例一致
@@ -357,21 +458,31 @@ const btnSmCls =
           <div class="min-w-0">
             <dt class="text-slate-300">主界面背景色</dt>
             <dd class="text-sm text-slate-500">
-              主窗口背景颜色，点击取色器可自定义
+              点击取色器自定义，拖动时主窗口实时预览，关闭后保存
             </dd>
           </div>
           <div class="flex shrink-0 items-center gap-2">
+            <button
+              v-if="canUndo"
+              :class="btnSmCls"
+              title="撤销本次修改，恢复上一次的颜色"
+              @click="onBackgroundColorUndo()"
+            >
+              撤销
+            </button>
             <input
+              ref="colorInput"
               type="color"
-              :value="settings.backgroundColor"
+              :value="shownColor"
               class="h-7 w-10 cursor-pointer rounded bg-slate-800"
-              @change="onBackgroundColorChange(($event.target as HTMLInputElement).value)"
+              @input="onBackgroundColorInput(($event.target as HTMLInputElement).value)"
+              @change="closeColorSession('change')"
             />
             <button
-              v-if="settings.backgroundColor !== DEFAULT_BACKGROUND_COLOR"
+              v-if="shownColor !== DEFAULT_BACKGROUND_COLOR"
               :class="btnSmCls"
               title="恢复默认背景色"
-              @click="onBackgroundColorChange(DEFAULT_BACKGROUND_COLOR)"
+              @click="onBackgroundColorReset()"
             >
               重置
             </button>
