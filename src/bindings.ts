@@ -90,6 +90,8 @@ export type Settings = {
 	hotkey?: string | null,
 	/**  主窗口背景透明度（%），10–100；旧数据缺字段按不透明处理 */
 	background_opacity?: number,
+	/**  主窗口背景色 `#RRGGBB`；非法值回落默认色 */
+	background_color?: string,
 };
 
 /**  紧急度分级：剩余天数 ≤ threshold_days 时该行采用 color 显示（含当天 days = 0）。 */

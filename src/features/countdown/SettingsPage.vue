@@ -10,7 +10,7 @@ import { log } from "@/utils/logger";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
 import SettingsRow from "./SettingsRow.vue";
 import SettingsToggle from "./SettingsToggle.vue";
-import { countdownState } from "./useCountdown";
+import { countdownState, DEFAULT_BACKGROUND_COLOR } from "./useCountdown";
 import type { UrgencyLevel } from "./logic";
 
 // 独立设置窗口的根视图：与主窗口各自持有状态副本，保存后广播刷新
@@ -302,6 +302,17 @@ async function onAutostartChange(next: boolean) {
   }
 }
 
+// 主界面背景色：@change（非 @input）触发，避免拉取色器时高频写盘
+async function onBackgroundColorChange(color: string) {
+  try {
+    await saveSettings({ backgroundColor: color });
+    await emit("settings-changed", null);
+    error.value = "";
+  } catch (e) {
+    error.value = String(e);
+  }
+}
+
 // 背景透明度：input 即保存广播（设置窗口与主窗口状态隔离，无法本地预览不落盘），
 // 写盘是小 JSON，与分级编辑「每次修改整表提交」的先例一致
 async function onOpacityChange(v: number) {
@@ -342,6 +353,31 @@ const btnSmCls =
     </header>
     <div class="p-4">
       <dl class="divide-y divide-slate-700">
+        <div class="flex items-center justify-between gap-3 py-3">
+          <div class="min-w-0">
+            <dt class="text-slate-300">主界面背景色</dt>
+            <dd class="text-sm text-slate-500">
+              主窗口背景颜色，点击取色器可自定义
+            </dd>
+          </div>
+          <div class="flex shrink-0 items-center gap-2">
+            <input
+              type="color"
+              :value="settings.backgroundColor"
+              class="h-7 w-10 cursor-pointer rounded bg-slate-800"
+              @change="onBackgroundColorChange(($event.target as HTMLInputElement).value)"
+            />
+            <button
+              v-if="settings.backgroundColor !== DEFAULT_BACKGROUND_COLOR"
+              :class="btnSmCls"
+              title="恢复默认背景色"
+              @click="onBackgroundColorChange(DEFAULT_BACKGROUND_COLOR)"
+            >
+              重置
+            </button>
+          </div>
+        </div>
+
         <div class="flex items-center justify-between gap-3 py-3">
           <div class="min-w-0">
             <dt class="text-slate-300">背景透明度</dt>

@@ -31,6 +31,19 @@ export function roundColumnWidths(w: ColumnWidths): ColumnWidths {
   };
 }
 
+/**
+ * 背景色（`#RRGGBB`）+ 百分比透明度合成 CSS 颜色。
+ * 只用 rgba 而非元素 opacity：后者会把子元素一起变透明。
+ * 非法色值回落 slate-900（与后端 DEFAULT_BACKGROUND_COLOR 一致）。
+ */
+export function hexToRgba(hex: string, percent: number): string {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex.trim());
+  const v = m ? parseInt(m[1], 16) : 0x0f172a;
+  const [r, g, b] = [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+  const a = Math.min(1, Math.max(0, (Number(percent) || 0) / 100));
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+
 export interface RowStateResult {
   state: RowState;
   /** 仅 level 态有值 */

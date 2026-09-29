@@ -1,4 +1,7 @@
-use super::{ColumnWidths, CountdownItem, Settings, UrgencyLevel, DEFAULT_HOTKEY, MIN_OPACITY};
+use super::{
+    ColumnWidths, CountdownItem, Settings, UrgencyLevel, DEFAULT_BACKGROUND_COLOR, DEFAULT_HOTKEY,
+    MIN_OPACITY,
+};
 
 fn level(days: u32, color: &str) -> UrgencyLevel {
     UrgencyLevel {
@@ -25,6 +28,8 @@ fn settings_default_is_three_levels() {
     assert_eq!(s.hotkey.as_deref(), Some(DEFAULT_HOTKEY));
     // 透明度缺字段回落不透明
     assert_eq!(s.background_opacity, 100);
+    // 背景色缺字段回落默认色
+    assert_eq!(s.background_color, DEFAULT_BACKGROUND_COLOR);
 }
 
 #[test]
@@ -81,6 +86,7 @@ fn settings_normalized_sorts_dedupes_and_fixes_colors() {
         always_on_top: true,
         hotkey: None,
         background_opacity: 100,
+        background_color: DEFAULT_BACKGROUND_COLOR.into(),
     }
     .normalized();
     let thresholds: Vec<u32> = s.levels.iter().map(|l| l.threshold_days).collect();
@@ -102,6 +108,7 @@ fn settings_normalized_caps_levels() {
         always_on_top: true,
         hotkey: None,
         background_opacity: 100,
+        background_color: DEFAULT_BACKGROUND_COLOR.into(),
     }
     .normalized();
     assert_eq!(s.levels.len(), 6);
@@ -123,6 +130,29 @@ fn background_opacity_clamps() {
     }
     .normalized();
     assert_eq!(s.background_opacity, 55);
+}
+
+#[test]
+fn background_color_falls_back_when_invalid() {
+    // 合法色原样保留
+    let s = Settings {
+        background_color: "#123456".into(),
+        ..Settings::default()
+    }
+    .normalized();
+    assert_eq!(s.background_color, "#123456");
+    // 非法色回落默认
+    for bad in ["", "red", "#12345", "#12g456", "123456"] {
+        let s = Settings {
+            background_color: bad.into(),
+            ..Settings::default()
+        }
+        .normalized();
+        assert_eq!(
+            s.background_color, DEFAULT_BACKGROUND_COLOR,
+            "非法色 {bad} 应回落"
+        );
+    }
 }
 
 #[test]

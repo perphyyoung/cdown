@@ -71,6 +71,7 @@ fn save_then_reload_keeps_settings() {
                 always_on_top: false,
                 hotkey: Some("Ctrl+Alt+K".into()),
                 background_opacity: 100,
+                background_color: "#0f172a".into(),
             };
             Ok(())
         })

@@ -77,6 +77,13 @@ fn default_opacity() -> u8 {
     100
 }
 
+/// 主窗口默认背景色（slate-900）
+pub const DEFAULT_BACKGROUND_COLOR: &str = "#0f172a";
+
+fn default_background_color() -> String {
+    DEFAULT_BACKGROUND_COLOR.into()
+}
+
 fn default_levels() -> Vec<UrgencyLevel> {
     vec![
         UrgencyLevel {
@@ -121,6 +128,9 @@ pub struct Settings {
     /// 主窗口背景透明度（%），10–100；旧数据缺字段按不透明处理
     #[serde(default = "default_opacity")]
     pub background_opacity: u8,
+    /// 主窗口背景色 `#RRGGBB`；非法值回落默认色
+    #[serde(default = "default_background_color")]
+    pub background_color: String,
 }
 
 impl Default for Settings {
@@ -131,6 +141,7 @@ impl Default for Settings {
             always_on_top: true,
             hotkey: default_hotkey(),
             background_opacity: default_opacity(),
+            background_color: default_background_color(),
         }
     }
 }
@@ -165,6 +176,10 @@ impl Settings {
             .filter(|s| !s.is_empty());
         // 透明度：夹到 10–100
         self.background_opacity = self.background_opacity.clamp(MIN_OPACITY, 100);
+        // 背景色：非法回落默认色
+        if !is_hex_color(&self.background_color) {
+            self.background_color = DEFAULT_BACKGROUND_COLOR.into();
+        }
         self
     }
 }

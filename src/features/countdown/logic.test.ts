@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   daysUntil,
   formatDays,
+  hexToRgba,
   roundColumnWidths,
   rowState,
   todayStr,
@@ -103,6 +104,21 @@ describe("formatDays", () => {
     expect(formatDays(1)).toBe("明天");
     expect(formatDays(2)).toBe("2 天");
     expect(formatDays(365)).toBe("365 天");
+  });
+});
+
+describe("hexToRgba", () => {
+  it("按百分比合成 rgba", () => {
+    expect(hexToRgba("#0f172a", 100)).toBe("rgba(15, 23, 42, 1)");
+    expect(hexToRgba("#ffffff", 50)).toBe("rgba(255, 255, 255, 0.5)");
+    expect(hexToRgba("#000000", 10)).toBe("rgba(0, 0, 0, 0.1)");
+  });
+
+  it("非法色值回落 slate-900，百分比夹到 0–100", () => {
+    expect(hexToRgba("red", 100)).toBe("rgba(15, 23, 42, 1)");
+    expect(hexToRgba("#12345", 80)).toBe("rgba(15, 23, 42, 0.8)");
+    expect(hexToRgba("#0f172a", 300)).toBe("rgba(15, 23, 42, 1)");
+    expect(hexToRgba("#0f172a", -10)).toBe("rgba(15, 23, 42, 0)");
   });
 });
 

@@ -40,11 +40,15 @@ interface SettingsView {
   hotkey: string | null;
   /** 主窗口背景透明度（%），10–100 */
   backgroundOpacity: number;
+  /** 主窗口背景色 `#RRGGBB` */
+  backgroundColor: string;
 }
 
 // bindings 里字段因 Rust 侧 serde(default) 导出为可选，读取前先归一化
 const DEFAULT_WIDTHS: ColumnWidths = { name: 92, target: 70, countdown: 52, note: 50 };
 const FALLBACK_COLOR = "#fb923c";
+/** 与后端 DEFAULT_BACKGROUND_COLOR 保持一致 */
+export const DEFAULT_BACKGROUND_COLOR = "#0f172a";
 
 function normalizeSettings(cfg: Settings): SettingsView {
   const w = cfg.column_widths ?? {};
@@ -63,6 +67,7 @@ function normalizeSettings(cfg: Settings): SettingsView {
     alwaysOnTop: cfg.always_on_top ?? true,
     hotkey: cfg.hotkey ?? null,
     backgroundOpacity: cfg.background_opacity ?? 100,
+    backgroundColor: cfg.background_color ?? DEFAULT_BACKGROUND_COLOR,
   };
 }
 
@@ -78,6 +83,7 @@ const settings = ref<SettingsView>({
   alwaysOnTop: true,
   hotkey: null,
   backgroundOpacity: 100,
+  backgroundColor: DEFAULT_BACKGROUND_COLOR,
 });
 const today = ref(todayStr());
 const ready = ref(false);
@@ -131,6 +137,7 @@ async function saveSettings(patch: {
   alwaysOnTop?: boolean;
   hotkey?: string | null;
   backgroundOpacity?: number;
+  backgroundColor?: string;
 }) {
   const next: Settings = {
     levels: (patch.levels ?? settings.value.levels).map((l) => ({
@@ -144,6 +151,7 @@ async function saveSettings(patch: {
     // 故用 in 判别「未修改」与「关闭热键（null）」
     hotkey: "hotkey" in patch ? (patch.hotkey ?? null) : settings.value.hotkey,
     background_opacity: Math.round(patch.backgroundOpacity ?? settings.value.backgroundOpacity),
+    background_color: patch.backgroundColor ?? settings.value.backgroundColor,
   };
   settings.value = normalizeSettings(await commands.setSettings(next));
 }
