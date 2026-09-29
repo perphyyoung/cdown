@@ -1,0 +1,22 @@
+/**
+ * e2e 配置：CDP 模式连接真实 Tauri 应用（参考 paim/tauri-playwright 的做法）。
+ *
+ * globalSetup 构建一次带内嵌前端的调试二进制，spec 自己 spawn 实例并通过 CDP 接管页面；
+ * 实例的数据目录用 CDOWN_DATA_DIR 重定向到 temp/ 下，与开发实例互不干扰。
+ *
+ * 运行前提：关闭正在运行的 dev 实例——tauri-plugin-single-instance 会让第二个实例直接退出，
+ * 故 workers 固定为 1（同一时刻只有一个实例）。
+ */
+import { defineConfig } from "@playwright/test";
+
+export default defineConfig({
+  testDir: import.meta.dirname,
+  // 首个用例承担实例启动（spawn + CDP 就绪，典型 2~4 秒）
+  timeout: 15_000,
+  // 覆盖 globalSetup 的构建耗时（缓存命中时整轮约 1 分钟）
+  globalTimeout: 600_000,
+  fullyParallel: false,
+  workers: 1,
+  reporter: "list",
+  globalSetup: "./global-setup.ts",
+});

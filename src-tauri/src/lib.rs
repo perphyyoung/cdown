@@ -38,24 +38,19 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         ])
 }
 
-/// debug 构建启动时自动导出到 ../src/bindings.ts
+/// 绑定导出路径：锚定 CARGO_MANIFEST_DIR（编译期绝对路径），与进程工作目录无关。
+/// 不能用相对路径——只有 tauri CLI 启动时 cwd 才是 src-tauri，
+/// 其它启动方（如 e2e 直接 spawn exe）会把文件写到项目外。
+#[cfg(debug_assertions)]
+fn bindings_path() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/bindings.ts")
+}
+
+/// debug 构建启动时自动导出 bindings；`CDOWN_EXPORT_BINDINGS` 触发「导出即退」供 pnpm check 复写。
 #[cfg(debug_assertions)]
 fn export_bindings(builder: &tauri_specta::Builder<tauri::Wry>) {
     builder
-        .export(
-            specta_typescript::Typescript::default(),
-            "../src/bindings.ts",
-        )
-        .expect("导出 TypeScript 绑定失败");
-}
-
-/// 供 pnpm check 复写 bindings：环境变量 CDOWN_EXPORT_BINDINGS 触发「导出即退」。
-/// 路径锚定 CARGO_MANIFEST_DIR（编译期绝对路径），与进程工作目录无关。
-#[cfg(debug_assertions)]
-fn export_bindings_standalone(builder: &tauri_specta::Builder<tauri::Wry>) {
-    let out = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/bindings.ts");
-    builder
-        .export(specta_typescript::Typescript::default(), &out)
+        .export(specta_typescript::Typescript::default(), bindings_path())
         .expect("导出 TypeScript 绑定失败");
 }
 
@@ -67,7 +62,7 @@ pub fn run() {
     // webview、不初始化任何子系统），导出后立即退出。
     #[cfg(debug_assertions)]
     if std::env::var_os("CDOWN_EXPORT_BINDINGS").is_some() {
-        export_bindings_standalone(&specta_builder);
+        export_bindings(&specta_builder);
         return;
     }
 

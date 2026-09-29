@@ -326,9 +326,6 @@ const canUndo = computed(
 );
 
 function onBackgroundColorInput(color: string) {
-  // 放弃后又选了不同的颜色，说明用户改主意了，恢复本会话
-  if (discardedColor.value !== null && color !== discardedColor.value) discardedColor.value = null;
-  log.info("[bg-color] input", color);
   previewColor.value = color;
   void emit("background-preview", color);
 }
@@ -352,11 +349,8 @@ function discardColorSession() {
   void emit("background-preview", settings.value.backgroundColor);
 }
 
-/**
- * 取色器关闭收口：一律以输入框的 DOM 实际值为准。
- * change 与窗口重获焦点都走这里，幂等；不依赖 change 一定触发，也不依赖拖动期间有过 input。
- */
-async function closeColorSession(source: string) {
+/** 取色器关闭收口（change）：一律以输入框的 DOM 实际值为准，不依赖拖动期间有过 input */
+async function closeColorSession() {
   const picked = colorInput.value?.value;
   const before = settings.value.backgroundColor;
   const previewed = previewColor.value;
@@ -366,15 +360,13 @@ async function closeColorSession(source: string) {
     // 这里统一把主窗口拉回已保存色，色块由 shownColor 自动跟回
     discardedColor.value = null;
     void emit("background-preview", before);
-    log.info("[bg-color] discard", source, picked, before);
     return;
   }
   if (!picked || picked === before) {
-    // 无变化：值被回退，或焦点回来的空转
+    // 无变化（对 DOM 而言值没动）：把可能残留的预览退回已保存色
     if (previewed !== null) void emit("background-preview", before);
     return;
   }
-  log.info("[bg-color] close", source, picked, before);
   if (await persistBackgroundColor(picked)) {
     undoColor.value = before; // 整段拖动记为一步
   } else {
@@ -405,14 +397,6 @@ async function onBackgroundColorUndo() {
     void emit("background-preview", settings.value.backgroundColor);
   }
 }
-
-// 兜底触发：取色器非模态，关闭它本身不改变窗口焦点（收口靠 change）；
-// 这里只覆盖窗口重新获得焦点的场景（如从其它应用切回），语义与 change 一致且幂等。
-function onWindowFocus() {
-  void closeColorSession("focus");
-}
-window.addEventListener("focus", onWindowFocus);
-onUnmounted(() => window.removeEventListener("focus", onWindowFocus));
 
 // 背景透明度：input 即保存广播（设置窗口与主窗口状态隔离，无法本地预览不落盘），
 // 写盘是小 JSON，与分级编辑「每次修改整表提交」的先例一致
@@ -476,7 +460,7 @@ const btnSmCls =
               :value="shownColor"
               class="h-7 w-10 cursor-pointer rounded bg-slate-800"
               @input="onBackgroundColorInput(($event.target as HTMLInputElement).value)"
-              @change="closeColorSession('change')"
+              @change="closeColorSession()"
             />
             <button
               v-if="shownColor !== DEFAULT_BACKGROUND_COLOR"
