@@ -155,18 +155,29 @@ pub fn run() {
                 }))?;
 
             // 托盘常驻：小组件 skipTaskbar 没有任务栏图标，托盘是唯一出口。
-            // 左键单击切换显示/隐藏，右键菜单「显示 / 退出」。
+            // 左键单击切换显示/隐藏，右键菜单：
+            // release「显示 / 设置 / 重启 / 退出」；
+            // dev「显示 / 设置 / 退出」——dev 下不提供重启：主线程 app.restart()
+            // 会 spawn 新 exe 并 exit(0)，tauri CLI 见 app 正常退出就连带杀掉
+            // vite（beforeDevCommand），新进程成为孤儿，新建窗口连不上 dev server。
             #[cfg(desktop)]
             {
                 use tauri::{
-                    menu::{Menu, MenuItem},
+                    menu::{Menu, MenuItem, PredefinedMenuItem},
                     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
                 };
 
                 let show = MenuItem::with_id(app, "show", "显示", true, None::<&str>)?;
                 let settings = MenuItem::with_id(app, "settings", "设置", true, None::<&str>)?;
+                let sep1 = PredefinedMenuItem::separator(app)?;
                 let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-                let menu = Menu::with_items(app, &[&show, &settings, &quit])?;
+                let menu = if cfg!(debug_assertions) {
+                    Menu::with_items(app, &[&show, &settings, &sep1, &quit])?
+                } else {
+                    // release 专属：前端走 tauri 内嵌协议，无 dev server，重启正常
+                    let restart = MenuItem::with_id(app, "restart", "重启", true, None::<&str>)?;
+                    Menu::with_items(app, &[&show, &settings, &sep1, &restart, &quit])?
+                };
 
                 TrayIconBuilder::with_id("cdown-tray")
                     .icon(app.default_window_icon().expect("缺少应用图标").clone())
@@ -185,9 +196,20 @@ pub fn run() {
                                 if let Err(e) =
                                     crate::commands::settings::open_settings_window(&settings_app)
                                 {
-                                    log::warn!("打开设置窗口失败：{e}");
+                                    log_warn!("打开设置窗口失败：{e}");
                                 }
                             });
+                        }
+                        "restart" => {
+                            // release 专属菜单项（dev 菜单不含 restart）。先存窗口状态再
+                            // 进程级重启；tauri 2.4+ 等旧实例退出事件循环后再拉起新进程，
+                            // single-instance 锁不冲突。
+                            use tauri_plugin_window_state::{AppHandleExt, StateFlags};
+                            let _ = app.save_window_state(
+                                StateFlags::all() & !StateFlags::VISIBLE & !StateFlags::DECORATIONS,
+                            );
+                            log_info!("托盘触发应用重启");
+                            app.restart();
                         }
                         "quit" => {
                             // 退出前显式保存窗口状态（插件在应用退出时也会自动保存）
