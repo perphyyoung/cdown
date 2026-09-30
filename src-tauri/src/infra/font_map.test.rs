@@ -1,4 +1,4 @@
-use super::{load_or_create, parse, DEFAULT_MAP, MAP_FILE_NAME};
+use super::{load_or_create, parse, template_map, MAP_FILE_NAME};
 
 #[test]
 fn parse_skips_comments_blank_and_malformed_lines() {
@@ -23,19 +23,20 @@ fn parse_tolerates_unquoted_keys_and_extra_spaces() {
 fn missing_file_writes_template_and_returns_default_map() {
     let dir = temp_dir("missing");
     let map = load_or_create(&dir);
-    assert_eq!(map.len(), DEFAULT_MAP.len());
+    let expected = template_map();
+    assert_eq!(map.len(), expected.len());
     assert_eq!(
         map.get("Microsoft YaHei").map(String::as_str),
         Some("微软雅黑")
     );
-    // 模板已落盘，且内容可被自身解析回来
+    // 模板已原样落盘，内容解析回来与内置模板一致
     let content = std::fs::read_to_string(dir.join(MAP_FILE_NAME)).unwrap();
-    assert_eq!(parse(&content).len(), DEFAULT_MAP.len());
+    assert_eq!(parse(&content).len(), expected.len());
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
 #[test]
-fn existing_file_wins_over_default_map() {
+fn existing_file_wins_over_template() {
     let dir = temp_dir("user");
     std::fs::write(dir.join(MAP_FILE_NAME), "\"My Font\" = \"我的字体\"\n").unwrap();
     let map = load_or_create(&dir);
