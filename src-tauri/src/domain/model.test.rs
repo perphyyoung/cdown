@@ -136,13 +136,13 @@ fn background_opacity_clamps() {
 
 #[test]
 fn font_family_normalized_trims_and_falls_back() {
-    // 合法值：去空白后原样保留
+    // 合法纯族名：去空白后原样保留
     let s = Settings {
-        font_family: "  \"Microsoft YaHei\", sans-serif  ".into(),
+        font_family: "  Microsoft YaHei  ".into(),
         ..Settings::default()
     }
     .normalized();
-    assert_eq!(s.font_family, "\"Microsoft YaHei\", sans-serif");
+    assert_eq!(s.font_family, "Microsoft YaHei");
     // 空串 = 跟随系统
     let s = Settings {
         font_family: "   ".into(),
@@ -150,9 +150,10 @@ fn font_family_normalized_trims_and_falls_back() {
     }
     .normalized();
     assert_eq!(s.font_family, "");
-    // 可逃出 font-family 值的字符与超长值：一律回落空串
-    let too_long = "a".repeat(201);
+    // 不是纯族名的（CSS 值、注入字符）与超长值：一律回落空串
+    let too_long = "a".repeat(65);
     for bad in [
+        "\"Microsoft YaHei\", sans-serif",
         "sans; color: red",
         "a { b }",
         "a\\b",

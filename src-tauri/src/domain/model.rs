@@ -131,7 +131,7 @@ pub struct Settings {
     /// 主窗口背景色 `#RRGGBB`；非法值回落默认色
     #[serde(default = "default_background_color")]
     pub background_color: String,
-    /// 全局字体家族：完整 CSS font-family 值（如 `"Microsoft YaHei", sans-serif`）；
+    /// 全局字体家族：纯族名（如 `Microsoft YaHei`），CSS 拼接由前端完成；
     /// 空串 = 跟随系统默认栈（旧数据缺字段即落这里，行为不变）
     #[serde(default)]
     pub font_family: String,
@@ -185,9 +185,8 @@ impl Settings {
         if !is_hex_color(&self.background_color) {
             self.background_color = DEFAULT_BACKGROUND_COLOR.into();
         }
-        // 字体家族：空串 = 跟随系统；值最终写进 CSS 的 font-family，故收边界——
-        // 含分号/花括号/反斜杠/换行或超长一律回落空串（不做族名合法性判断，
-        // 装没装由前端的候选表与浏览器回落链负责）
+        // 字体家族：空串 = 跟随系统；只接受纯族名（中英文/数字/空格与 . _ -），
+        // 与前端 sanitizeFontFamily 的合法字符集一致；含逗号、引号、分号等或超长一律回落空串
         let font_family = self.font_family.trim().to_string();
         self.font_family = if is_font_family_value(&font_family) {
             font_family
@@ -198,14 +197,13 @@ impl Settings {
     }
 }
 
-/// 字体家族值上限（字符数），取值参考：正常值如 `"Microsoft YaHei", sans-serif` 约 30
-const MAX_FONT_FAMILY_LEN: usize = 200;
+/// 家族名长度上限，与前端 sanitizeFontFamily 的 FONT_FAMILY_MAX_LEN 一致
+const MAX_FONT_FAMILY_LEN: usize = 64;
 
 fn is_font_family_value(s: &str) -> bool {
     s.chars().count() <= MAX_FONT_FAMILY_LEN
-        && !s
-            .chars()
-            .any(|c| matches!(c, ';' | '{' | '}' | '\\' | '\n' | '\r' | '\t'))
+        && s.chars()
+            .all(|c| c.is_alphanumeric() || matches!(c, ' ' | '.' | '_' | '-'))
 }
 
 fn is_hex_color(s: &str) -> bool {

@@ -14,12 +14,15 @@ body {
   background: transparent;
 }
 
-/* 全局字体：设置页「字体家族」写入 --font-family 覆盖；空值/未设置时用默认栈。
+/* 全局字体：设置页「字体家族」写入 --font-family 覆盖（值由 font.ts 的
+   buildFontFamilyValue 拼出：用户字体在前、此默认栈兜底）；空值/未设置时用下面的默认栈。
    挂在 html 上（不是 body）——VueDatePicker 的弹层 teleport 到 body 之外，也要继承到。
-   置于 @tailwind 之后，同层规则后者生效，覆盖 preflight 的默认字体栈。 */
+   置于 @tailwind 之后，同层规则后者生效，覆盖 preflight 的默认字体栈。
+   默认栈必须与 font.ts 的 DEFAULT_FONT_STACK 逐字一致。 */
 :root {
   --font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", Roboto, Arial, sans-serif;
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei",
+    Roboto, Arial, sans-serif;
 }
 
 html {

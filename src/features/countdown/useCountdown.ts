@@ -42,7 +42,7 @@ interface SettingsView {
   backgroundOpacity: number;
   /** 主窗口背景色 `#RRGGBB` */
   backgroundColor: string;
-  /** 全局字体家族（完整 CSS font-family 值）；空串 = 跟随系统默认栈 */
+  /** 全局字体家族（纯族名，CSS 拼接在前端）；空串 = 跟随系统默认栈 */
   fontFamily: string;
 }
 

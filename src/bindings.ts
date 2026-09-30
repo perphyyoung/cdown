@@ -98,7 +98,7 @@ export type Settings = {
 	/**  主窗口背景色 `#RRGGBB`；非法值回落默认色 */
 	background_color?: string,
 	/**
-	 *  全局字体家族：完整 CSS font-family 值（如 `"Microsoft YaHei", sans-serif`）；
+	 *  全局字体家族：纯族名（如 `Microsoft YaHei`），CSS 拼接由前端完成；
 	 *  空串 = 跟随系统默认栈（旧数据缺字段即落这里，行为不变）
 	 */
 	font_family?: string,

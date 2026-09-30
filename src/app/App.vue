@@ -8,6 +8,7 @@ import DatePickerWindow from "@/features/countdown/DatePickerWindow.vue";
 import { commands } from "@/bindings";
 import { log } from "@/utils/logger";
 import { hexToRgba } from "@/features/countdown/logic";
+import { buildFontFamilyValue } from "@/features/countdown/font";
 import {
   useCountdown,
   type ColumnWidths,
@@ -46,14 +47,14 @@ void listen("settings-changed", () => {
 }).then((u) => unlisteners.push(u));
 onUnmounted(() => unlisteners.forEach((u) => u()));
 
-// 全局字体：写入 CSS 变量，空值回落默认栈（style.css 的 :root 默认）。
+// 全局字体：设置存的是纯族名，这里拼上默认栈写入 CSS 变量（字体被卸载也不破版）；
+// 空串 = 跟随系统，移除变量回落 style.css 的 :root 默认栈。
 // 放在窗口分支之外——主窗口、设置页、日历弹窗共用本组件，三处一起生效。
-// 取值走 --font-family 而非直接设 style.fontFamily：默认栈留在 CSS 里，JS 只负责覆盖。
 watch(
   () => settings.value.fontFamily,
-  (v) => {
+  (family) => {
     const style = document.documentElement.style;
-    if (v) style.setProperty("--font-family", v);
+    if (family) style.setProperty("--font-family", buildFontFamilyValue(family));
     else style.removeProperty("--font-family");
   },
   { immediate: true },
