@@ -156,7 +156,6 @@ pub fn import_settings(
         .settings
         .ok_or_else(|| CommandError::Invalid("导入文件缺少 settings 内容".into()))?;
     settings = settings.normalized();
-    settings.column_widths = settings.column_widths.sanitized();
     // 与 set_settings 同序：先校验/注册热键，再落盘；落盘失败回滚热键注册
     settings.hotkey = hotkey::canonicalize(settings.hotkey.as_deref())?;
     let prev = store.read()?.settings.hotkey;

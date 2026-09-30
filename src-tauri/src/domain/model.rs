@@ -125,9 +125,6 @@ pub struct Settings {
     /// 紧急度分级：按阈值降序存储；过期固定红色，不在此列
     #[serde(default = "default_levels")]
     pub levels: Vec<UrgencyLevel>,
-    /// 表格四列宽度（px）
-    #[serde(default)]
-    pub column_widths: ColumnWidths,
     /// 主窗口置顶（标题栏图钉切换）；旧数据缺字段按默认置顶处理
     #[serde(default = "default_true")]
     pub always_on_top: bool,
@@ -155,7 +152,6 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             levels: default_levels(),
-            column_widths: ColumnWidths::default(),
             always_on_top: true,
             hotkey: default_hotkey(),
             background_opacity: default_opacity(),

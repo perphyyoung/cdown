@@ -309,6 +309,14 @@ export function readPersistedSettings(dataDir: string): Record<string, unknown> 
   return (settings && typeof settings === "object" ? settings : raw) as Record<string, unknown>;
 }
 
+/// 读取顶层独立持久化的表格列宽（与 settings 平级，不随设置备份/还原流转）
+export function readPersistedColumnWidths(dataDir: string): Record<string, number> {
+  const file = path.join(dataDir, "cdown.json");
+  if (!fs.existsSync(file)) return {};
+  const raw = JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, unknown>;
+  return ((raw.column_widths ?? {}) as Record<string, number>) ?? {};
+}
+
 /// 等落盘值与期望一致（写文件是异步的）
 export function expectPersistedColor(dataDir: string, color: string): Promise<void> {
   return expect

@@ -10,10 +10,13 @@ export const commands = {
 	addItem: (title: string, targetDate: string, note: string | null) => __TAURI_INVOKE<CountdownItem>("add_item", { title, targetDate, note }),
 	updateItem: (id: string, title: string, targetDate: string, note: string | null) => __TAURI_INVOKE<null>("update_item", { id, title, targetDate, note }),
 	deleteItem: (id: string) => __TAURI_INVOKE<null>("delete_item", { id }),
+	getColumnWidths: () => __TAURI_INVOKE<ColumnWidths>("get_column_widths"),
+	/**  拖拽列宽落盘；落盘前统一夹取（24–400px），返回夹取后的值。 */
+	setColumnWidths: (widths: ColumnWidths) => __TAURI_INVOKE<ColumnWidths>("set_column_widths", { widths }),
 	getSettings: () => __TAURI_INVOKE<Settings>("get_settings"),
 	setSettings: (settings: Settings) => __TAURI_INVOKE<Settings>("set_settings", { settings }),
 	/**
-	 *  还原所有配置为默认值（分级/列宽/置顶/热键/背景/字体），倒计时数据不动。
+	 *  还原所有配置为默认值（分级/置顶/热键/背景/字体），倒计时数据与表格列宽不动。
 	 *  必须与 set_settings 走同一条持久化路径，默认热键才会立即重新注册生效。
 	 */
 	resetSettings: () => __TAURI_INVOKE<Settings>("reset_settings"),
@@ -89,8 +92,6 @@ export type LogLevelChanged = string;
 export type Settings = {
 	/**  紧急度分级：按阈值降序存储；过期固定红色，不在此列 */
 	levels?: UrgencyLevel[],
-	/**  表格四列宽度（px） */
-	column_widths?: ColumnWidths,
 	/**  主窗口置顶（标题栏图钉切换）；旧数据缺字段按默认置顶处理 */
 	always_on_top?: boolean,
 	/**

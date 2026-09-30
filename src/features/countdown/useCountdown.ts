@@ -36,7 +36,6 @@ export type EditTarget = { mode: "add" } | { mode: "edit"; id: string; field: Ed
 
 interface SettingsView {
   levels: UrgencyLevel[];
-  column_widths: ColumnWidths;
   alwaysOnTop: boolean;
   /** 全局热键 accelerator（如 Ctrl+Alt+C）；null = 关闭热键 */
   hotkey: string | null;
@@ -61,19 +60,12 @@ export const MAX_FONT_SIZE = 20;
 export const DEFAULT_FONT_SIZE = 14;
 
 function normalizeSettings(cfg: Settings): SettingsView {
-  const w = cfg.column_widths ?? {};
   const levels = (cfg.levels ?? []).map((l) => ({
     thresholdDays: l.threshold_days ?? 0,
     color: l.color ?? FALLBACK_COLOR,
   }));
   return {
     levels,
-    column_widths: {
-      name: w.name ?? DEFAULT_WIDTHS.name,
-      target: w.target ?? DEFAULT_WIDTHS.target,
-      countdown: w.countdown ?? DEFAULT_WIDTHS.countdown,
-      note: w.note ?? DEFAULT_WIDTHS.note,
-    },
     alwaysOnTop: cfg.always_on_top ?? true,
     hotkey: cfg.hotkey ?? null,
     backgroundOpacity: cfg.background_opacity ?? 100,
@@ -81,6 +73,16 @@ function normalizeSettings(cfg: Settings): SettingsView {
     fontFamily: cfg.font_family ?? "",
     // 后端 normalized 已夹到 10–20；缺字段（bindings 可选）回落默认 14
     fontSize: cfg.font_size ?? DEFAULT_FONT_SIZE,
+  };
+}
+
+// bindings 里字段因 Rust 侧 serde(default) 导出为可选，读取前先归一化
+function normalizeWidths(w?: Partial<ColumnWidths>): ColumnWidths {
+  return {
+    name: w?.name ?? DEFAULT_WIDTHS.name,
+    target: w?.target ?? DEFAULT_WIDTHS.target,
+    countdown: w?.countdown ?? DEFAULT_WIDTHS.countdown,
+    note: w?.note ?? DEFAULT_WIDTHS.note,
   };
 }
 
@@ -92,7 +94,6 @@ const settings = ref<SettingsView>({
     { thresholdDays: 3, color: "#facc15" },
     { thresholdDays: 0, color: "#fb923c" },
   ],
-  column_widths: { ...DEFAULT_WIDTHS },
   alwaysOnTop: true,
   hotkey: null,
   backgroundOpacity: 100,
@@ -100,6 +101,8 @@ const settings = ref<SettingsView>({
   fontFamily: "",
   fontSize: DEFAULT_FONT_SIZE,
 });
+/// 表格列宽：独立于设置的布局状态（不参与设置备份/还原），单独命令持久化
+const columnWidths = ref<ColumnWidths>({ ...DEFAULT_WIDTHS });
 const today = ref(todayStr());
 const ready = ref(false);
 const error = ref("");
@@ -120,9 +123,14 @@ function onVisibility() {
 
 async function reload() {
   try {
-    const [list, cfg] = await Promise.all([commands.listItems(), commands.getSettings()]);
+    const [list, cfg, widths] = await Promise.all([
+      commands.listItems(),
+      commands.getSettings(),
+      commands.getColumnWidths(),
+    ]);
     items.value = list;
     settings.value = normalizeSettings(cfg);
+    columnWidths.value = normalizeWidths(widths);
     error.value = "";
   } catch (e) {
     error.value = String(e);
@@ -148,7 +156,6 @@ async function deleteItem(id: string) {
 
 async function saveSettings(patch: {
   levels?: UrgencyLevel[];
-  columnWidths?: ColumnWidths;
   alwaysOnTop?: boolean;
   hotkey?: string | null;
   backgroundOpacity?: number;
@@ -161,8 +168,6 @@ async function saveSettings(patch: {
       threshold_days: l.thresholdDays,
       color: l.color,
     })),
-    // 列宽必须取整：后端 u32 不接受浮点（缩放屏拖拽会产生小数）
-    column_widths: roundColumnWidths(patch.columnWidths ?? settings.value.column_widths),
     always_on_top: patch.alwaysOnTop ?? settings.value.alwaysOnTop,
     // 热键必须显式带上：字段缺失会被后端 serde default 填回默认键，
     // 故用 in 判别「未修改」与「关闭热键（null）」
@@ -176,9 +181,16 @@ async function saveSettings(patch: {
   settings.value = normalizeSettings(await commands.setSettings(next));
 }
 
-// 还原所有配置：默认值的单一事实源在 Rust，直接用命令返回值覆盖本地状态
+// 还原所有配置：默认值的单一事实源在 Rust，直接用命令返回值覆盖本地设置；列宽独立不受影响
 async function resetSettings() {
   settings.value = normalizeSettings(await commands.resetSettings());
+}
+
+// 拖拽列宽落盘：独立命令，不经过 settings；后端会再夹取一次，返回值为准
+async function saveColumnWidths(widths: ColumnWidths) {
+  // 列宽必须取整：后端 u32 不接受浮点（缩放屏拖拽会产生小数）
+  const saved = await commands.setColumnWidths(roundColumnWidths(widths));
+  columnWidths.value = normalizeWidths(saved);
 }
 
 function startAdd() {
@@ -225,6 +237,7 @@ export function countdownState() {
   return {
     items,
     settings,
+    columnWidths,
     today,
     ready,
     error,
@@ -251,6 +264,7 @@ export function countdownState() {
     deleteItem,
     saveSettings,
     resetSettings,
+    saveColumnWidths,
     startAdd,
     startEdit,
     cancelEdit,

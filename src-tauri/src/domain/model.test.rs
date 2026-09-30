@@ -38,7 +38,6 @@ fn default_settings_survive_normalize() {
     let s = Settings::default().normalized();
     let d = Settings::default();
     assert_eq!(s.levels, d.levels);
-    assert_eq!(s.column_widths, d.column_widths);
     assert!(s.always_on_top);
     assert_eq!(s.hotkey.as_deref(), Some(DEFAULT_HOTKEY));
     assert_eq!(s.background_opacity, 100);
@@ -65,15 +64,6 @@ fn hotkey_default_only_when_field_missing() {
 }
 
 #[test]
-fn column_widths_fill_defaults_when_missing() {
-    // 旧版 settings 只有阈值字段，column_widths 缺失时整体回落默认值
-    let s: Settings = serde_json::from_str("{\"levels\":[]}").unwrap();
-    assert!(s.levels.is_empty());
-    assert_eq!(s.column_widths, ColumnWidths::default());
-    assert!(ColumnWidths::default().name > 0);
-}
-
-#[test]
 fn column_widths_sanitized_clamps() {
     let w = ColumnWidths {
         name: 10,
@@ -97,7 +87,6 @@ fn settings_normalized_sorts_dedupes_and_fixes_colors() {
             level(10, "#12g45z"), // 非法颜色 → 回落
             level(1, "#ffffff"),
         ],
-        column_widths: ColumnWidths::default(),
         always_on_top: true,
         hotkey: None,
         background_opacity: 100,
@@ -121,7 +110,6 @@ fn settings_normalized_caps_levels() {
     }
     let s = Settings {
         levels,
-        column_widths: ColumnWidths::default(),
         always_on_top: true,
         hotkey: None,
         background_opacity: 100,
@@ -222,6 +210,13 @@ fn background_color_falls_back_when_invalid() {
             "非法色 {bad} 应回落"
         );
     }
+}
+
+#[test]
+fn settings_json_never_carries_column_widths() {
+    // 列宽已移出设置：设置备份导出的 JSON 结构上不可能携带列宽
+    let raw = serde_json::to_string(&Settings::default()).unwrap();
+    assert!(!raw.contains("column_widths"));
 }
 
 #[test]

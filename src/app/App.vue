@@ -18,11 +18,13 @@ import {
 const {
   rows,
   settings,
+  columnWidths,
   ready,
   error,
   editing,
   deleteItem,
   saveSettings: persistSettings,
+  saveColumnWidths: persistColumnWidths,
   reload,
   startAdd,
   cancelEdit,
@@ -102,15 +104,21 @@ async function onRemove(id: string) {
   }
 }
 
-async function saveSettings(patch: {
-  levels?: UrgencyLevel[];
-  columnWidths?: ColumnWidths;
-  alwaysOnTop?: boolean;
-}) {
+async function saveSettings(patch: { levels?: UrgencyLevel[]; alwaysOnTop?: boolean }) {
   try {
     await persistSettings(patch);
   } catch (e) {
     log.error("[settings] 保存失败", String(e));
+    error.value = String(e);
+  }
+}
+
+// 拖拽列宽：独立于设置持久化（不参与设置备份/还原）
+async function onColumnResize(widths: ColumnWidths) {
+  try {
+    await persistColumnWidths(widths);
+  } catch (e) {
+    log.error("[columns] 列宽保存失败", String(e));
     error.value = String(e);
   }
 }
@@ -260,9 +268,9 @@ async function menuFitWindow() {
       v-if="ready"
       ref="tableRef"
       :rows="rows"
-      :widths="settings.column_widths"
+      :widths="columnWidths"
       @remove="onRemove"
-      @resize="saveSettings({ columnWidths: $event })"
+      @resize="onColumnResize"
     />
 
     <template v-if="titleMenu">

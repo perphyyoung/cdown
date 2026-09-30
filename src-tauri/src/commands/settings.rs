@@ -1,4 +1,5 @@
-//! 设置命令：紧急度分级与表格列宽；设置窗口的创建/唤起。
+//! 设置命令：紧急度分级等全局设置；设置窗口的创建/唤起。
+//! 表格列宽不属于设置，见 commands/columns.rs。
 
 use std::collections::BTreeMap;
 
@@ -65,7 +66,7 @@ pub fn set_settings(
     persist_settings(&app, &store, settings)
 }
 
-/// 还原所有配置为默认值（分级/列宽/置顶/热键/背景/字体），倒计时数据不动。
+/// 还原所有配置为默认值（分级/置顶/热键/背景/字体），倒计时数据与表格列宽不动。
 /// 必须与 set_settings 走同一条持久化路径，默认热键才会立即重新注册生效。
 #[tauri::command]
 #[specta::specta]
@@ -81,7 +82,6 @@ fn persist_settings(
     mut settings: Settings,
 ) -> Result<Settings, CommandError> {
     settings = settings.normalized();
-    settings.column_widths = settings.column_widths.sanitized();
     // 热键先校验规范化（非法即整次保存失败），再注册、最后落盘：
     // 顺序不能反——先落盘会把一个没生效的键写进 cdown.json；先注册则失败时旧键仍可用。
     settings.hotkey = hotkey::canonicalize(settings.hotkey.as_deref())?;

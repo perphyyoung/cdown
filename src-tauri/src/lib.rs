@@ -22,6 +22,8 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::items::add_item,
             commands::items::update_item,
             commands::items::delete_item,
+            commands::columns::get_column_widths,
+            commands::columns::set_column_widths,
             commands::settings::get_settings,
             commands::settings::set_settings,
             commands::settings::reset_settings,

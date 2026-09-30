@@ -98,10 +98,10 @@ async function onFontSizeChange(v: number) {
   }
 }
 
-// 一键还原所有配置：分级/列宽/置顶/热键/背景/字体回默认；倒计时数据、开机自启、窗口位置不动
+// 一键还原所有配置：分级/置顶/热键/背景/字体回默认；列宽、倒计时数据、开机自启、窗口位置不动
 function askResetAll() {
   askConfirm(
-    "紧急度分级、列宽、置顶、全局热键、背景色与透明度、字体家族与大小将全部恢复默认；倒计时数据、开机自启和窗口位置不变。",
+    "紧急度分级、置顶、全局热键、背景色与透明度、字体家族与大小将全部恢复默认；表格列宽、倒计时数据、开机自启和窗口位置不变。",
     () => void onResetAll(),
     { title: "还原所有配置", confirmText: "还原默认" },
   );
@@ -698,7 +698,7 @@ const btnSmCls =
           <div class="min-w-0">
             <dt class="text-slate-300">设置备份</dt>
             <dd class="text-sm text-slate-500">
-              导出/导入紧急度分级、列宽与全局热键；导入为替换语义，只覆盖设置，倒计时不动
+              导出/导入紧急度分级、置顶、全局热键、背景和字体相关配置；导入为替换语义，只覆盖设置，倒计时不动
             </dd>
           </div>
           <div class="flex shrink-0 gap-2">
@@ -712,7 +712,7 @@ const btnSmCls =
         <div class="min-w-0">
           <p class="text-slate-300">还原所有配置</p>
           <p class="text-sm text-slate-500">
-            分级、列宽、置顶、热键、背景与字体全部恢复默认；倒计时数据、开机自启和窗口位置不变
+            分级、置顶、热键、背景与字体全部恢复默认；列宽、倒计时数据、开机自启和窗口位置不变
           </p>
         </div>
         <button
