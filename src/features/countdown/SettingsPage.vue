@@ -20,7 +20,7 @@ import {
 import type { UrgencyLevel } from "./logic";
 
 // 独立设置窗口的根视图：与主窗口各自持有状态副本，保存后广播刷新
-const { settings, ready, error, reload, saveSettings } = countdownState();
+const { settings, ready, error, reload, saveSettings, resetSettings } = countdownState();
 
 // 版本单一事实源 package.json（vite define 注入）
 const appVersion = __APP_VERSION__;
@@ -92,6 +92,26 @@ async function onFontSizeChange(v: number) {
   try {
     await saveSettings({ fontSize: v });
     await emit("settings-changed", null);
+    error.value = "";
+  } catch (e) {
+    error.value = String(e);
+  }
+}
+
+// 一键还原所有配置：分级/列宽/置顶/热键/背景/字体回默认；倒计时数据、开机自启、窗口位置不动
+function askResetAll() {
+  askConfirm(
+    "紧急度分级、列宽、置顶、全局热键、背景色与透明度、字体家族与大小将全部恢复默认；倒计时数据、开机自启和窗口位置不变。",
+    () => void onResetAll(),
+    { title: "还原所有配置", confirmText: "还原默认" },
+  );
+}
+
+async function onResetAll() {
+  try {
+    await resetSettings();
+    await emit("settings-changed", null);
+    msg.value = "所有配置已还原为默认";
     error.value = "";
   } catch (e) {
     error.value = String(e);
@@ -679,6 +699,21 @@ const btnSmCls =
           </div>
         </div>
       </dl>
+
+      <div class="mt-1 flex items-center justify-between gap-3 border-t border-slate-700 pt-3">
+        <div class="min-w-0">
+          <p class="text-slate-300">还原所有配置</p>
+          <p class="text-sm text-slate-500">
+            分级、列宽、置顶、热键、背景与字体全部恢复默认；倒计时数据、开机自启和窗口位置不变
+          </p>
+        </div>
+        <button
+          class="shrink-0 rounded border border-red-500/60 px-3 py-1 text-sm text-red-300 hover:bg-red-900/40"
+          @click="askResetAll"
+        >
+          还原默认
+        </button>
+      </div>
 
       <p v-if="msg" class="mt-2 rounded bg-emerald-900/50 px-2 py-1 text-xs text-emerald-200">
         {{ msg }}

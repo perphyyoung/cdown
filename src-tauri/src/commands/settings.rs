@@ -62,20 +62,37 @@ pub fn set_settings(
     store: State<'_, Store>,
     settings: Settings,
 ) -> Result<Settings, CommandError> {
-    let mut settings = settings.normalized();
+    persist_settings(&app, &store, settings)
+}
+
+/// 还原所有配置为默认值（分级/列宽/置顶/热键/背景/字体），倒计时数据不动。
+/// 必须与 set_settings 走同一条持久化路径，默认热键才会立即重新注册生效。
+#[tauri::command]
+#[specta::specta]
+pub fn reset_settings(app: AppHandle, store: State<'_, Store>) -> Result<Settings, CommandError> {
+    persist_settings(&app, &store, Settings::default())
+}
+
+/// 归一化 → 热键校验/注册 → 落盘；落盘失败把热键注册回滚到旧值，
+/// 避免内存热键与 cdown.json 不一致。
+fn persist_settings(
+    app: &AppHandle,
+    store: &State<'_, Store>,
+    mut settings: Settings,
+) -> Result<Settings, CommandError> {
+    settings = settings.normalized();
     settings.column_widths = settings.column_widths.sanitized();
     // 热键先校验规范化（非法即整次保存失败），再注册、最后落盘：
     // 顺序不能反——先落盘会把一个没生效的键写进 cdown.json；先注册则失败时旧键仍可用。
     settings.hotkey = hotkey::canonicalize(settings.hotkey.as_deref())?;
     let prev = store.read()?.settings.hotkey;
-    hotkey::apply(&app, settings.hotkey.as_deref())?;
+    hotkey::apply(app, settings.hotkey.as_deref())?;
     let saved = store.mutate(|d: &mut StoreData| -> Result<(), CommandError> {
         d.settings = settings.clone();
         Ok(())
     });
     if let Err(e) = saved {
-        // 落盘失败：把热键注册回滚到旧值，避免内存热键与 cdown.json 不一致
-        if let Err(back) = hotkey::apply(&app, prev.as_deref()) {
+        if let Err(back) = hotkey::apply(app, prev.as_deref()) {
             log_warn!("全局热键回滚失败：{back}");
         }
         return Err(e);

@@ -33,6 +33,21 @@ fn settings_default_is_three_levels() {
 }
 
 #[test]
+fn default_settings_survive_normalize() {
+    // reset_settings 的数据源：默认值过一遍 normalized 不得漂移
+    let s = Settings::default().normalized();
+    let d = Settings::default();
+    assert_eq!(s.levels, d.levels);
+    assert_eq!(s.column_widths, d.column_widths);
+    assert!(s.always_on_top);
+    assert_eq!(s.hotkey.as_deref(), Some(DEFAULT_HOTKEY));
+    assert_eq!(s.background_opacity, 100);
+    assert_eq!(s.background_color, DEFAULT_BACKGROUND_COLOR);
+    assert_eq!(s.font_family, "");
+    assert_eq!(s.font_size, 14);
+}
+
+#[test]
 fn hotkey_default_only_when_field_missing() {
     // 显式 null = 用户主动关闭热键，不能被默认值覆盖
     let s: Settings = serde_json::from_str("{\"hotkey\":null}").unwrap();

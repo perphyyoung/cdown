@@ -24,6 +24,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::items::delete_item,
             commands::settings::get_settings,
             commands::settings::set_settings,
+            commands::settings::reset_settings,
             commands::settings::open_settings,
             commands::settings::get_font_family_map,
             commands::data::export_items,

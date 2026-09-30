@@ -176,6 +176,11 @@ async function saveSettings(patch: {
   settings.value = normalizeSettings(await commands.setSettings(next));
 }
 
+// 还原所有配置：默认值的单一事实源在 Rust，直接用命令返回值覆盖本地状态
+async function resetSettings() {
+  settings.value = normalizeSettings(await commands.resetSettings());
+}
+
 function startAdd() {
   // 默认日期为当天：日历直接落在当前月，多数场景只需改名称
   draft.value = { title: "", targetDate: today.value, note: null };
@@ -245,6 +250,7 @@ export function countdownState() {
     updateItem,
     deleteItem,
     saveSettings,
+    resetSettings,
     startAdd,
     startEdit,
     cancelEdit,

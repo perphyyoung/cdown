@@ -13,6 +13,11 @@ export const commands = {
 	getSettings: () => __TAURI_INVOKE<Settings>("get_settings"),
 	setSettings: (settings: Settings) => __TAURI_INVOKE<Settings>("set_settings", { settings }),
 	/**
+	 *  还原所有配置为默认值（分级/列宽/置顶/热键/背景/字体），倒计时数据不动。
+	 *  必须与 set_settings 走同一条持久化路径，默认热键才会立即重新注册生效。
+	 */
+	resetSettings: () => __TAURI_INVOKE<Settings>("reset_settings"),
+	/**
 	 *  打开设置窗口（前端 ⚙ 按钮调用）。
 	 *  必须是 async 命令：WebviewWindowBuilder::build() 在 Windows 上于同步命令中
 	 *  会死锁（官方文档明确警告，命令/事件处理器里要改用 async 或独立线程）。
