@@ -1,11 +1,27 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { emit, listen } from "@tauri-apps/api/event";
+import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { VueDatePicker } from "@vuepic/vue-datepicker";
 import { commands } from "@/bindings";
 
 // 独立日期选择弹窗：inline 日历 + auto-apply，选中即广播并关窗；无时间选择
 const value = ref<Date | null>(null);
+const root = ref<HTMLElement | null>(null);
+
+function nextFrame(): Promise<void> {
+  return new Promise((r) => requestAnimationFrame(() => r()));
+}
+
+// 窗口以 visible(false) 创建，builder 的 inner_size 在 show 前生效会多算一个 caption 高
+// （与主窗口重启长高同源）。页面渲染完成时窗口已 show，此时按内容真实高度回设，
+// 走正常路径，底边贴合「今天」按钮。宽度 240 恒定不量；日历固定 6 行，高度不随月份变。
+async function fitHeight() {
+  await nextFrame();
+  await nextFrame();
+  const h = root.value?.scrollHeight ?? 0;
+  if (h > 0) await getCurrentWindow().setSize(new LogicalSize(240, h));
+}
 
 function applyIso(iso: string | null) {
   if (!iso) return;
@@ -17,6 +33,7 @@ onMounted(async () => {
   applyIso(await commands.getDatePickerPayload());
   // 窗口常驻复用：再次打开时主窗口经此事件推送新的初始值
   await listen<string | null>("date-payload", (e) => applyIso(e.payload));
+  await fitHeight();
 });
 
 function toIso(v: Date): string {
@@ -39,7 +56,7 @@ async function pickToday() {
 </script>
 
 <template>
-  <div class="flex h-screen flex-col overflow-hidden bg-slate-800 p-1">
+  <div ref="root" class="flex flex-col bg-slate-800 p-1">
     <VueDatePicker
       v-model="value"
       inline
