@@ -106,6 +106,30 @@ async function saveSettings(patch: {
     error.value = String(e);
   }
 }
+
+// 标题栏右键菜单：目前仅「自适应宽高」一项（收放列宽并把窗口调到刚好容纳整张表）
+const tableRef = ref<InstanceType<typeof CountdownTable> | null>(null);
+const titleMenu = ref<{ x: number; y: number } | null>(null);
+
+function openTitleMenu(e: MouseEvent) {
+  const mw = 120;
+  const mh = 40;
+  titleMenu.value = {
+    x: Math.min(e.clientX, window.innerWidth - mw - 4),
+    y: Math.min(e.clientY, window.innerHeight - mh - 4),
+  };
+}
+function closeTitleMenu() {
+  titleMenu.value = null;
+}
+async function menuFitWindow() {
+  closeTitleMenu();
+  try {
+    await tableRef.value?.fitWindow();
+  } catch (e) {
+    log.error("[fit-window] 自适应宽高失败", String(e));
+  }
+}
 </script>
 
 <template>
@@ -122,8 +146,12 @@ async function saveSettings(patch: {
       ),
     }"
   >
-    <!-- 标题栏：无边框窗口拖动区 + 添加/设置/隐藏按钮 -->
-    <header class="relative flex h-8 shrink-0 items-center" data-tauri-drag-region>
+    <!-- 标题栏：无边框窗口拖动区 + 添加/设置/隐藏按钮；右键弹自适应菜单 -->
+    <header
+      class="relative flex h-8 shrink-0 items-center"
+      data-tauri-drag-region
+      @contextmenu.prevent="openTitleMenu"
+    >
       <img src="/icon.png" alt="cdown" class="ml-2 h-4 w-4 select-none" draggable="false" />
       <!-- 标题居左：窄窗口（无倒计时行）下绝对居中会与右侧功能键重合 -->
       <span
@@ -198,10 +226,31 @@ async function saveSettings(patch: {
 
     <CountdownTable
       v-if="ready"
+      ref="tableRef"
       :rows="rows"
       :widths="settings.column_widths"
       @remove="onRemove"
       @resize="saveSettings({ columnWidths: $event })"
     />
+
+    <template v-if="titleMenu">
+      <!-- 透明遮罩：点击/右键任意处关闭菜单 -->
+      <div
+        class="fixed inset-0 z-40"
+        @pointerdown="closeTitleMenu"
+        @contextmenu.prevent="closeTitleMenu"
+      />
+      <div
+        class="fixed z-50 min-w-[120px] rounded bg-slate-800 py-1 text-xs shadow-xl shadow-black/40 ring-1 ring-slate-700"
+        :style="{ left: `${titleMenu.x}px`, top: `${titleMenu.y}px` }"
+      >
+        <button
+          class="block w-full px-3 py-1.5 text-left text-slate-200 hover:bg-slate-700"
+          @click="menuFitWindow()"
+        >
+          自适应宽高
+        </button>
+      </div>
+    </template>
   </div>
 </template>

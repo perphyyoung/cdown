@@ -2,7 +2,6 @@
 import { computed, nextTick, reactive, ref, watch } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalSize } from "@tauri-apps/api/dpi";
-import { log } from "@/utils/logger";
 import { formatDays } from "./logic";
 import { countdownState, type ColumnWidths, type CountdownRow } from "./useCountdown";
 import type { CountdownItem } from "@/bindings";
@@ -45,7 +44,7 @@ function onUp() {
   emit("resize", { ...local });
 }
 
-// —— 表头列定义与列宽自适应（表头右键）——
+// —— 表头列定义与窗口自适应（标题栏右键触发）——
 // 表头列定义：顺序即列顺序，每列右缘各挂一根拖拽手柄
 const HEADER_COLS = [
   { key: "countdown", label: "倒计时" },
@@ -55,8 +54,6 @@ const HEADER_COLS = [
 ] as const satisfies readonly { key: keyof ColumnWidths; label: string }[];
 const COLUMN_KEYS = HEADER_COLS.map((c) => c.key);
 const GAP = 8; // grid gap-x-2
-const ROW_PAD = 8; // 行 px-1
-const MAIN_PAD = 16; // 表格容器 px-2
 // 最长文字与左右竖线的间隙：所有列共用同一个值，改这里即可整体调整留白。
 // 竖线画在列间隙中点，故可见列宽 = 列宽 + GAP，列宽 = 最长文字 + 2 * COL_PAD - GAP。
 const COL_PAD = 12;
@@ -83,57 +80,22 @@ function fittedWidth(col: keyof ColumnWidths): number {
   return Math.min(MAX, Math.max(MIN, measureColumn(col) + 2 * COL_PAD - GAP));
 }
 
-function fitColumn(col: keyof ColumnWidths) {
-  local[col] = fittedWidth(col);
-  emitResize();
-}
-
-function fitAllColumns() {
+// 标题栏右键「自适应宽高」：四列收放到内容宽度并持久化，然后把窗口调到刚好容纳整张表。
+// 宽高一律量真实 DOM（内层 w-max 容器 + 标题栏/容器的固定 padding），不手算行高常量，
+// 空态、草稿行、字体变化都自动涵盖。
+async function fitWindow() {
   COLUMN_KEYS.forEach((c) => (local[c] = fittedWidth(c)));
   emitResize();
-  fitWindowWidthSafe();
-}
-
-// 全部列自适应时，把主窗口宽度也调到刚好容纳整张表
-async function fitWindowWidth() {
-  const total = COLUMN_KEYS.reduce((sum, c) => sum + local[c], 0) + GAP * 3 + ROW_PAD + MAIN_PAD;
+  await nextTick();
+  const tableW = innerEl.value?.offsetWidth ?? 0;
+  const tableH = innerEl.value?.offsetHeight ?? 0;
   const win = getCurrentWindow();
-  // setSize 设置的是 inner 尺寸，读取也必须用 innerSize：outer 含隐藏边框差值
-  // （无边框带阴影窗口），混用会让高度每次点击棘轮式增长
-  const inner = await win.innerSize();
-  const logical = inner.toLogical(await win.scaleFactor());
-  if (Math.abs(logical.width - total) < 1) return;
-  await win.setSize(new LogicalSize(Math.ceil(total), Math.round(logical.height)));
+  // setSize 设置的是 inner 尺寸：宽 = 表格 + main 的 px-2(16)；
+  // 高 = 标题栏 h-8(32) + 表格 + main 的 pb-1(4)
+  await win.setSize(new LogicalSize(Math.ceil(tableW + 16), 32 + tableH + 4));
 }
 
-function fitWindowWidthSafe() {
-  fitWindowWidth().catch((e) => log.error("[fit-all] 调整窗口宽度失败", String(e)));
-}
-
-// 表头右键菜单
-const headerMenu = ref<{ x: number; y: number; col: keyof ColumnWidths } | null>(null);
-
-function openHeaderMenu(e: MouseEvent, col: keyof ColumnWidths) {
-  const mw = 168;
-  const mh = 76;
-  headerMenu.value = {
-    x: Math.min(e.clientX, window.innerWidth - mw - 4),
-    y: Math.min(e.clientY, window.innerHeight - mh - 4),
-    col,
-  };
-}
-function closeHeaderMenu() {
-  headerMenu.value = null;
-}
-function menuFitColumn() {
-  const col = headerMenu.value?.col;
-  closeHeaderMenu();
-  if (col) fitColumn(col);
-}
-function menuFitAll() {
-  closeHeaderMenu();
-  fitAllColumns();
-}
+defineExpose({ fitWindow });
 
 // 列顺序：倒计时、目标日期、名称、备注
 const gridStyle = computed(() => ({
@@ -150,6 +112,8 @@ function rowStyle(row: CountdownRow) {
 const { editing, startEdit } = countdownState();
 
 const mainEl = ref<HTMLElement | null>(null);
+// 内层 w-max 容器：窗口宽高按它的真实渲染尺寸收放
+const innerEl = ref<HTMLElement | null>(null);
 // 进入编辑时聚焦名称输入框
 watch(editing, async (v) => {
   if (!v) return;
@@ -198,7 +162,7 @@ function confirmRemove() {
   <main ref="mainEl" class="min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-auto px-2 pb-1">
     <!-- w-max 收缩为表格自然宽度 + mx-auto 左右居中：拖拽列宽时两侧间距始终相等；
          总宽超出窗口时 margin auto 归零、从左溢出滚动，行为与占满时一致 -->
-    <div class="w-max mx-auto">
+    <div ref="innerEl" class="w-max mx-auto">
       <!-- 手柄 -right-2.5 = -(手柄宽 w-3 的一半 6px + gap-x-2 的一半 4px)，
            中心落在它与右邻列的间隙中点（末列右缘落在表格外缘），
            于是每列文字到左右竖线的距离恒等；两侧留白量见 COL_PAD -->
@@ -206,13 +170,7 @@ function confirmRemove() {
         class="group/head grid items-center gap-x-2 border-b border-slate-800 px-1 py-1 text-center text-xs text-slate-500"
         :style="gridStyle"
       >
-        <span
-          v-for="col in HEADER_COLS"
-          :key="col.key"
-          class="relative"
-          :data-col="col.key"
-          @contextmenu.prevent="openHeaderMenu($event, col.key)"
-        >
+        <span v-for="col in HEADER_COLS" :key="col.key" class="relative" :data-col="col.key">
           <span
             class="group/col absolute top-0 -right-2.5 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
             title="拖拽调整列宽"
@@ -280,32 +238,6 @@ function confirmRemove() {
           @click="menuRemove()"
         >
           删除
-        </button>
-      </div>
-    </template>
-
-    <template v-if="headerMenu">
-      <!-- 透明遮罩：点击/右键任意处关闭菜单 -->
-      <div
-        class="fixed inset-0 z-40"
-        @pointerdown="closeHeaderMenu"
-        @contextmenu.prevent="closeHeaderMenu"
-      />
-      <div
-        class="fixed z-50 min-w-[168px] rounded bg-slate-800 py-1 text-xs shadow-xl shadow-black/40 ring-1 ring-slate-700"
-        :style="{ left: `${headerMenu.x}px`, top: `${headerMenu.y}px` }"
-      >
-        <button
-          class="block w-full px-3 py-1.5 text-left text-slate-200 hover:bg-slate-700"
-          @click="menuFitColumn()"
-        >
-          单列自适应
-        </button>
-        <button
-          class="block w-full px-3 py-1.5 text-left text-slate-200 hover:bg-slate-700"
-          @click="menuFitAll()"
-        >
-          全部列自适应
         </button>
       </div>
     </template>
