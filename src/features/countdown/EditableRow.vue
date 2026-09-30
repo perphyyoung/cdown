@@ -7,12 +7,15 @@ import { daysUntil, formatDays, rowState } from "./logic";
 import { countdownState } from "./useCountdown";
 
 // 行内编辑行：新增草稿与修改既有行共用；倒计时列只读，随目标日期实时重算并按分级着色
-const { draft, today, settings, error, commitEdit, cancelEdit } = countdownState();
+const { draft, today, settings, error, editing, commitEdit, cancelEdit } = countdownState();
 
 const days = computed(() => daysUntil(draft.value.targetDate, today.value));
 const preview = computed(() => rowState(days.value, settings.value.levels));
 
 const rowEl = ref<HTMLElement | null>(null);
+const dateInputRef = ref<HTMLInputElement | null>(null);
+const titleInputRef = ref<HTMLInputElement | null>(null);
+const noteInputRef = ref<HTMLInputElement | null>(null);
 // 日期弹窗打开期间它持有焦点，会触发本行的 focusout/pointerdown —— 期间抑制自动提交，
 // 否则弹窗一开编辑行就退出，整个界面跳动
 const pickerOpen = ref(false);
@@ -47,9 +50,9 @@ onMounted(async () => {
 });
 onUnmounted(() => unlistenPicked?.());
 
-async function openDatePicker(e: MouseEvent) {
+async function openDatePickerFrom(el: HTMLElement) {
   pickerOpen.value = true;
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  const rect = el.getBoundingClientRect();
   const win = getCurrentWindow();
   const pos = (await win.outerPosition()).toLogical(await win.scaleFactor());
   try {
@@ -62,6 +65,27 @@ async function openDatePicker(e: MouseEvent) {
     error.value = String(err);
   }
 }
+
+function onDateClick() {
+  if (dateInputRef.value) void openDatePickerFrom(dateInputRef.value);
+}
+
+// 初始焦点按编辑入口分流：新增聚焦名称；编辑既有行聚焦右键点中的列，
+// 点中目标日期列时直接打开日期选择弹窗
+onMounted(() => {
+  const target = editing.value;
+  if (!target || target.mode === "add") {
+    titleInputRef.value?.focus();
+    return;
+  }
+  if (target.field === "target") {
+    if (dateInputRef.value) void openDatePickerFrom(dateInputRef.value);
+  } else if (target.field === "note") {
+    noteInputRef.value?.focus();
+  } else {
+    titleInputRef.value?.focus();
+  }
+});
 </script>
 
 <template>
@@ -81,22 +105,24 @@ async function openDatePicker(e: MouseEvent) {
       {{ Number.isNaN(days) ? "—" : formatDays(days) }}
     </span>
     <input
+      ref="dateInputRef"
       v-model="draft.targetDate"
       type="text"
       inputmode="numeric"
       maxlength="10"
       placeholder="YYYY-MM-DD"
       class="min-w-0 rounded bg-slate-900/70 px-1.5 h-7 text-center text-xs text-slate-100 outline-none ring-1 ring-slate-700 focus:ring-slate-500 placeholder:text-slate-500"
-      @click="openDatePicker"
+      @click="onDateClick"
     />
     <input
+      ref="titleInputRef"
       v-model="draft.title"
       type="text"
       placeholder="名称"
-      data-focus-first
       class="min-w-0 rounded bg-slate-900/70 px-1.5 h-7 text-center text-xs text-slate-100 outline-none ring-1 ring-slate-700 focus:ring-slate-500 placeholder:text-slate-500"
     />
     <input
+      ref="noteInputRef"
       v-model="draft.note"
       type="text"
       placeholder="备注"

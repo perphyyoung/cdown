@@ -29,8 +29,10 @@ export interface CountdownRow {
   color?: string;
 }
 
-/** 行内编辑目标：add = 新增草稿行（显示在最后）；edit = 修改既有行 */
-export type EditTarget = { mode: "add" } | { mode: "edit"; id: string };
+/** 行内编辑目标：add = 新增草稿行（显示在最后）；edit = 修改既有行。
+ *  field 标记右键点中的列，决定进入编辑后聚焦哪个输入框 */
+export type EditField = "target" | "name" | "note";
+export type EditTarget = { mode: "add" } | { mode: "edit"; id: string; field: EditField };
 
 interface SettingsView {
   levels: UrgencyLevel[];
@@ -169,9 +171,9 @@ function startAdd() {
   editing.value = { mode: "add" };
 }
 
-function startEdit(item: CountdownItem) {
+function startEdit(item: CountdownItem, field: EditField = "name") {
   draft.value = { title: item.title, targetDate: item.target_date, note: item.note };
-  editing.value = { mode: "edit", id: item.id };
+  editing.value = { mode: "edit", id: item.id, field };
 }
 
 function cancelEdit() {

@@ -3,7 +3,12 @@ import { computed, nextTick, reactive, ref, watch } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { formatDays } from "./logic";
-import { countdownState, type ColumnWidths, type CountdownRow } from "./useCountdown";
+import {
+  countdownState,
+  type ColumnWidths,
+  type CountdownRow,
+  type EditField,
+} from "./useCountdown";
 import type { CountdownItem } from "@/bindings";
 import EditableRow from "./EditableRow.vue";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
@@ -143,43 +148,39 @@ async function syncHeightForAdd(active: boolean) {
   }
 }
 
-// 进入编辑时聚焦名称输入框；新增模式额外处理窗口高度
+// 进入新增时窗口自动增高；聚焦由 EditableRow 按编辑字段自理
 watch(editing, async (v) => {
   if (v?.mode === "add") {
     await syncHeightForAdd(true);
-    await nextTick();
-    mainEl.value?.querySelector<HTMLInputElement>("input[data-focus-first]")?.focus();
     return;
   }
   if (heightBeforeAdd !== null) await syncHeightForAdd(false);
-  if (!v) return;
-  await nextTick();
-  mainEl.value?.querySelector<HTMLInputElement>("input[data-focus-first]")?.focus();
 });
 
 function isEditing(id: string) {
   return editing.value?.mode === "edit" && editing.value.id === id;
 }
 
-// 行右键菜单：全应用唯一的右键入口（默认菜单已在 main.ts 全局禁用）。
+// 行右键菜单：只挂在可编辑的三列上（第一列倒计时只读，不响应右键）。
 // 删除走自定义确认对话框（双击误确认，菜单内两步确认已废弃）。
-const menu = ref<{ x: number; y: number; item: CountdownItem } | null>(null);
+const menu = ref<{ x: number; y: number; item: CountdownItem; field: EditField } | null>(null);
 const pendingDelete = ref<CountdownItem | null>(null);
 
-function openMenu(e: MouseEvent, item: CountdownItem) {
+function openMenu(e: MouseEvent, item: CountdownItem, field: EditField) {
   const mw = 96;
   const mh = 76;
   menu.value = {
     x: Math.min(e.clientX, window.innerWidth - mw - 4),
     y: Math.min(e.clientY, window.innerHeight - mh - 4),
     item,
+    field,
   };
 }
 function closeMenu() {
   menu.value = null;
 }
 function menuEdit() {
-  if (menu.value) startEdit(menu.value.item);
+  if (menu.value) startEdit(menu.value.item, menu.value.field);
   closeMenu();
 }
 function menuRemove() {
@@ -240,14 +241,27 @@ function confirmRemove() {
                 ? ''
                 : 'text-slate-200'
           "
-          @contextmenu.prevent="openMenu($event, row.item)"
         >
           <span class="text-xs font-medium" data-col="countdown">{{ formatDays(row.days) }}</span>
-          <span class="text-xs" data-col="target">{{ row.item.target_date }}</span>
-          <span class="truncate text-sm" data-col="name" :title="row.item.title">{{
-            row.item.title
-          }}</span>
-          <span class="truncate text-sm" data-col="note" :title="row.item.note ?? ''">
+          <span
+            class="text-xs"
+            data-col="target"
+            @contextmenu.prevent="openMenu($event, row.item, 'target')"
+            >{{ row.item.target_date }}</span
+          >
+          <span
+            class="truncate text-sm"
+            data-col="name"
+            :title="row.item.title"
+            @contextmenu.prevent="openMenu($event, row.item, 'name')"
+            >{{ row.item.title }}</span
+          >
+          <span
+            class="truncate text-sm"
+            data-col="note"
+            :title="row.item.note ?? ''"
+            @contextmenu.prevent="openMenu($event, row.item, 'note')"
+          >
             {{ row.item.note }}
           </span>
         </div>
