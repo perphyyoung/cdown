@@ -146,6 +146,8 @@ async function menuFitWindow() {
   <!-- 主窗口背景色/透明度可调：预览值优先（取色器打开期间实时），否则用已保存值 -->
   <div
     v-else
+    role="application"
+    aria-label="倒计时主窗口"
     class="flex h-full select-none flex-col text-slate-100"
     :style="{
       backgroundColor: hexToRgba(

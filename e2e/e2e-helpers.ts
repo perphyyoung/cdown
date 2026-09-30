@@ -193,10 +193,10 @@ export async function findPageByWindowLabel(
   throw new Error(`未找到窗口 label=${label} 的页面`);
 }
 
-/// 主窗口页面（等根节点挂上，说明前端已渲染）
+/// 主窗口页面（等主窗口根节点挂上，说明前端已渲染）
 export async function mainPage(app: AppHandle): Promise<Page> {
   const page = await findPageByWindowLabel(app.browser, "main", 15_000);
-  await expect(page.locator("#app > div")).toBeAttached();
+  await expect(page.getByRole("application", { name: "倒计时主窗口" })).toBeAttached();
   return page;
 }
 
@@ -204,7 +204,7 @@ export async function mainPage(app: AppHandle): Promise<Page> {
 export async function openSettingsWindow(app: AppHandle, main: Page): Promise<Page> {
   await main.getByTitle("设置").click();
   const settings = await findPageByWindowLabel(app.browser, "settings", 10_000);
-  await expect(settings.locator("dl").first()).toBeVisible();
+  await expect(settings.getByRole("heading", { name: "设置" })).toBeVisible();
   return settings;
 }
 
@@ -227,10 +227,9 @@ export function invokeCommand<T>(
 
 /// ---- 背景色与透明度 ----
 
-/// 设置页最上方的取色器：背景色行固定排在最前，故取第一个 color 输入
-/// （紧急度分级行里也有 color 输入，位置在后）
+/// 主界面背景色取色器（设置页分级行也有颜色选择器，按 aria-label 区分）
 export function colorInput(settings: Page) {
-  return settings.locator('input[type="color"]').first();
+  return settings.getByLabel("主界面背景色");
 }
 
 export function undoButton(settings: Page) {
@@ -271,7 +270,9 @@ export async function setOpacity(settings: Page, percent: number): Promise<void>
 /// 主窗口根节点的背景色，解析成 [r, g, b, a]（读计算样式，避开 rgb/rgba 序列化差异）
 export function backgroundRgba(main: Page): Promise<[number, number, number, number]> {
   return main.evaluate(() => {
-    const el = document.querySelector<HTMLElement>("#app > div[style]");
+    const el = document.querySelector<HTMLElement>(
+      '[role="application"][aria-label="倒计时主窗口"]',
+    );
     const nums = (getComputedStyle(el!).backgroundColor.match(/[\d.]+/g) ?? []).map(Number);
     return [nums[0], nums[1], nums[2], nums[3] ?? 1] as [number, number, number, number];
   });

@@ -91,6 +91,7 @@ onMounted(() => {
 <template>
   <div
     ref="rowEl"
+    role="row"
     class="grid h-9 items-center gap-x-2 rounded bg-slate-800/40 px-1 text-center"
     title="回车保存，Esc 取消"
     @keydown.enter.prevent="commitEdit()"

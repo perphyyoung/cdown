@@ -206,17 +206,25 @@ function confirmRemove() {
 
 <template>
   <main ref="mainEl" class="min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-auto px-2 pb-1">
-    <!-- w-max 收缩为表格自然宽度 + mx-auto 左右居中：拖拽列宽时两侧间距始终相等；
+    <!-- ARIA：内层容器即倒计时表格；表头/数据行分别为 row + columnheader/cell。
+         w-max 收缩为表格自然宽度 + mx-auto 左右居中：拖拽列宽时两侧间距始终相等；
          总宽超出窗口时 margin auto 归零、从左溢出滚动，行为与占满时一致 -->
-    <div ref="innerEl" class="w-max mx-auto">
+    <div ref="innerEl" role="table" aria-label="倒计时表格" class="w-max mx-auto">
       <!-- 手柄 -right-2.5 = -(手柄宽 w-3 的一半 6px + gap-x-2 的一半 4px)，
            中心落在它与右邻列的间隙中点（末列右缘落在表格外缘），
            于是每列文字到左右竖线的距离恒等；两侧留白量见 COL_PAD -->
       <div
+        role="row"
         class="group/head grid items-center gap-x-2 border-b border-slate-800 px-1 py-1 text-center fs-sm text-slate-500"
         :style="gridStyle"
       >
-        <span v-for="col in HEADER_COLS" :key="col.key" class="relative" :data-col="col.key">
+        <span
+          v-for="col in HEADER_COLS"
+          :key="col.key"
+          role="columnheader"
+          class="relative"
+          :data-col="col.key"
+        >
           <span
             class="group/col absolute top-0 -right-2.5 z-10 flex h-full w-3 cursor-col-resize items-center justify-center"
             title="拖拽调整列宽"
@@ -233,14 +241,18 @@ function confirmRemove() {
       </div>
       <div
         v-if="rows.length === 0 && editing?.mode !== 'add'"
+        role="row"
         class="py-8 text-center fs-sm text-slate-500"
       >
-        暂无倒计时，点右上角 ＋ 添加
+        <span role="cell" :aria-colspan="COLUMN_KEYS.length" class="block">
+          暂无倒计时，点右上角 ＋ 添加
+        </span>
       </div>
       <template v-for="row in rows" :key="row.item.id">
         <EditableRow v-if="isEditing(row.item.id)" :style="gridStyle" />
         <div
           v-else
+          role="row"
           class="grid h-9 items-center gap-x-2 rounded px-1 text-center hover:bg-slate-800/60"
           :style="rowStyle(row)"
           :class="
@@ -251,14 +263,18 @@ function confirmRemove() {
                 : 'text-slate-200'
           "
         >
-          <span class="fs-sm font-medium" data-col="countdown">{{ formatDays(row.days) }}</span>
+          <span role="cell" class="fs-sm font-medium" data-col="countdown">{{
+            formatDays(row.days)
+          }}</span>
           <span
+            role="cell"
             class="fs-sm"
             data-col="target"
             @contextmenu.prevent="openMenu($event, row.item, 'target')"
             >{{ row.item.target_date }}</span
           >
           <span
+            role="cell"
             class="truncate fs-base"
             data-col="name"
             :title="row.item.title"
@@ -266,6 +282,7 @@ function confirmRemove() {
             >{{ row.item.title }}</span
           >
           <span
+            role="cell"
             class="truncate fs-base"
             data-col="note"
             :title="row.item.note ?? ''"

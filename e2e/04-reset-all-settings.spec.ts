@@ -8,6 +8,7 @@ import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import {
   backgroundRgba,
+  colorInput,
   dataDirFor,
   disposeApp,
   launchApp,
@@ -19,6 +20,7 @@ import {
 } from "./e2e-helpers";
 
 const DEFAULT_RGB = [15, 23, 42];
+const ITEM_TITLES = ["还原测试一", "还原测试二"] as const;
 
 /// 主窗口 html 上的 CSS 变量值（字号/字体家族 watch 写入）
 function cssVar(page: Page, name: string): Promise<string> {
@@ -28,9 +30,11 @@ function cssVar(page: Page, name: string): Promise<string> {
   );
 }
 
-/// 表格数据行数（数据行容器是 .grid.h-9；表头无 h-9）
-function rowCount(main: Page) {
-  return main.locator(".grid.h-9").count();
+/// 两条倒计时的名称单元格都可见（数据未被还原动作删除）
+async function expectItemsKept(main: Page): Promise<void> {
+  for (const title of ITEM_TITLES) {
+    await expect(main.getByRole("cell", { name: title })).toBeVisible();
+  }
 }
 
 test.describe("还原所有配置", () => {
@@ -46,14 +50,14 @@ test.describe("还原所有配置", () => {
       items: [
         {
           id: "rst-01",
-          title: "还原测试一",
+          title: ITEM_TITLES[0],
           target_date: "2026-12-01",
           note: null,
           created_at: "2026-09-01T00:00:00Z",
         },
         {
           id: "rst-02",
-          title: "还原测试二",
+          title: ITEM_TITLES[1],
           target_date: "2026-12-31",
           note: "备注",
           created_at: "2026-09-01T00:00:00Z",
@@ -82,7 +86,7 @@ test.describe("还原所有配置", () => {
 
   test("二次确认后所有配置回默认，倒计时不动，重启后仍保持", async () => {
     // —— 还原前：预置的非默认值确已生效 ——
-    expect(await rowCount(main)).toBe(2);
+    await expectItemsKept(main);
     expect(await cssVar(main, "--table-font-size")).toBe("18px");
     expect(await cssVar(main, "--font-family")).toContain("SimSun");
     await expect.poll(() => backgroundRgba(main)).toEqual([26, 43, 60, 0.55]);
@@ -90,30 +94,27 @@ test.describe("还原所有配置", () => {
     settings = await openSettingsWindow(app, main);
     await expect(settings.getByRole("slider", { name: "背景透明度" })).toHaveValue("55");
     await expect(settings.getByRole("slider", { name: "表格字体大小" })).toHaveValue("18");
-    await expect(settings.locator("input[type='color']").first()).toHaveValue("#1a2b3c");
+    await expect(colorInput(settings)).toHaveValue("#1a2b3c");
 
     // —— 点还原 → 二次确认 ——
     await settings.getByRole("button", { name: "还原默认" }).click();
-    // ConfirmDialog 未挂 ARIA 角色，按遮罩层 class 与标题文本定位
-    const box = settings.locator(".fixed.inset-0.z-\\[110\\]");
-    await expect(box).toBeVisible();
-    await expect(settings.getByRole("heading", { name: "还原所有配置" })).toBeVisible();
-    // 弹窗确认按钮与底部触发按钮同名，取弹层内的一个
-    await box.getByRole("button", { name: "还原默认" }).click();
-    await expect(box).toBeHidden();
+    const dialog = settings.getByRole("dialog", { name: "还原所有配置" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "还原默认" }).click();
+    await expect(dialog).toBeHidden();
 
     // —— 设置页控件全部回默认 ——
     await expect(settings.getByRole("slider", { name: "背景透明度" })).toHaveValue("100");
     await expect(settings.getByRole("slider", { name: "表格字体大小" })).toHaveValue("14");
-    await expect(settings.locator("input[type='color']").first()).toHaveValue("#0f172a");
-    await expect(settings.locator('button[title="跟随系统"]')).toBeVisible();
+    await expect(colorInput(settings)).toHaveValue("#0f172a");
+    await expect(settings.getByTitle("跟随系统")).toBeVisible();
 
     // —— 主窗口实时回退 ——
     await expect.poll(() => backgroundRgba(main)).toEqual([...DEFAULT_RGB, 1]);
     expect(await cssVar(main, "--table-font-size")).toBe("14px");
     // 空家族 = 移除内联覆盖，计算值回落 :root 默认栈（不再含 SimSun）
     expect(await cssVar(main, "--font-family")).not.toContain("SimSun");
-    expect(await rowCount(main)).toBe(2);
+    await expectItemsKept(main);
 
     // —— 落盘即默认 ——
     const saved = readPersistedSettings(app.dataDir);
@@ -123,11 +124,11 @@ test.describe("还原所有配置", () => {
     expect(saved.font_family).toBe("");
     expect(saved.always_on_top).toBe(true);
 
-    // —— 重启后默认值与倒计时数据都仍在（reload 异步，poll 等渲染）——
+    // —— 重启后默认值与倒计时数据都仍在（reload 异步，可见断言自带等待）——
     await restartApp(app);
     main = await mainPage(app);
-    await expect.poll(() => rowCount(main)).toBe(2);
-    await expect.poll(() => cssVar(main, "--table-font-size")).toBe("14px");
+    await expectItemsKept(main);
+    expect(await cssVar(main, "--table-font-size")).toBe("14px");
     await expect.poll(() => backgroundRgba(main)).toEqual([...DEFAULT_RGB, 1]);
 
     settings = await openSettingsWindow(app, main);

@@ -465,10 +465,16 @@ const btnSmCls =
 
 <template>
   <!-- 布局参考 paim SettingsView：每个设置项一行，左栏标题+副标题，右栏控件/按钮，行间分隔线 -->
-  <div v-if="ready" ref="rootEl" class="bg-slate-900 text-slate-100">
+  <div
+    v-if="ready"
+    ref="rootEl"
+    role="region"
+    aria-label="设置窗口"
+    class="bg-slate-900 text-slate-100"
+  >
     <!-- 自绘标题栏（无边框窗口）：设置 | 版本居中 | 关闭 -->
     <header class="relative flex h-8 shrink-0 items-center px-3" data-tauri-drag-region>
-      <span class="text-sm text-slate-300">设置</span>
+      <span role="heading" aria-level="1" class="text-sm text-slate-300">设置</span>
       <span
         class="absolute left-1/2 -translate-x-1/2 text-xs text-slate-500"
         data-tauri-drag-region
@@ -536,6 +542,7 @@ const btnSmCls =
             <input
               ref="colorInput"
               type="color"
+              aria-label="主界面背景色"
               :value="shownColor"
               class="h-7 w-10 cursor-pointer rounded bg-slate-800"
               @input="onBackgroundColorInput(($event.target as HTMLInputElement).value)"
@@ -607,6 +614,7 @@ const btnSmCls =
               <span class="text-xs text-slate-500">天内</span>
               <input
                 type="color"
+                :aria-label="`${lvl.thresholdDays} 天内级别颜色`"
                 :value="lvl.color"
                 class="h-7 w-10 cursor-pointer rounded bg-slate-800"
                 @change="onLevelColor(i, $event)"

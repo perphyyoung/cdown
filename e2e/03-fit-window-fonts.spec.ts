@@ -29,21 +29,26 @@ interface Measure {
 }
 
 async function measure(page: Page): Promise<Measure> {
-  return page.evaluate(() => {
-    const main = document.querySelector<HTMLElement>("main");
-    const inner = main?.querySelector<HTMLElement>(".w-max");
-    return {
+  const main = page.getByRole("main");
+  const table = page.getByRole("table", { name: "倒计时表格" });
+  const [mainBox, tableBox, win] = await Promise.all([
+    main.evaluate((el) => ({
+      mainSW: el.scrollWidth,
+      mainCW: el.clientWidth,
+      mainSH: el.scrollHeight,
+      mainCH: el.clientHeight,
+    })),
+    table.evaluate((el) => {
+      const node = el as HTMLElement;
+      return { innerW: node.offsetWidth, innerH: node.offsetHeight };
+    }),
+    page.evaluate(() => ({
       winW: window.innerWidth,
       winH: window.innerHeight,
-      mainSW: main?.scrollWidth ?? 0,
-      mainCW: main?.clientWidth ?? 0,
-      mainSH: main?.scrollHeight ?? 0,
-      mainCH: main?.clientHeight ?? 0,
-      innerW: inner?.offsetWidth ?? 0,
-      innerH: inner?.offsetHeight ?? 0,
       dpr: window.devicePixelRatio,
-    };
-  });
+    })),
+  ]);
+  return { ...win, ...mainBox, ...tableBox };
 }
 
 /// 同一实例内切字体：写 CSS 变量（等价 App.vue watch 的效果）+ 强制加载，不刷新页面
