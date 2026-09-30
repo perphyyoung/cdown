@@ -85,8 +85,18 @@ function fittedWidth(col: keyof ColumnWidths): number {
   return Math.min(MAX, Math.max(MIN, measureColumn(col) + 2 * COL_PAD - GAP));
 }
 
+// 宽度留白：main 的 px-2 共 16，再加 1px 安全余量。
+// 实测 Windows 无边框透明窗口缩小时 setSize 会欠 1px（请求 427 落地 426，放大时不欠，
+// 与 DWM 异步调整有关，回读补差读到的是动画中间态、不可靠）。宽度方向零余量，
+// 欠 1px 就先挤出横向滚动条（占 8px 高）再连锁挤出纵向滚动条；多请 1px，欠账后正好
+// 包住，不欠时也只多 1px，无滚动条且肉眼无感。
+const WIN_PAD_X = 16 + 1;
+// 高度留白：main 的 pb-1(4)（高度方向实测不欠账，4px 足够，不另加余量）
+const WIN_PAD_Y = 4;
+const TITLE_BAR_H = 32; // 标题栏 h-8
+
 // 标题栏右键「自适应宽高」：四列收放到内容宽度并持久化，然后把窗口调到刚好容纳整张表。
-// 宽高一律量真实 DOM（内层 w-max 容器 + 标题栏/容器的固定 padding），不手算行高常量，
+// 宽高一律量真实 DOM（内层 w-max 容器 + 标题栏/容器的固定留白），不手算行高常量，
 // 空态、草稿行、字体变化都自动涵盖。
 async function fitWindow() {
   COLUMN_KEYS.forEach((c) => (local[c] = fittedWidth(c)));
@@ -94,10 +104,9 @@ async function fitWindow() {
   await nextTick();
   const tableW = innerEl.value?.offsetWidth ?? 0;
   const tableH = innerEl.value?.offsetHeight ?? 0;
-  const win = getCurrentWindow();
-  // setSize 设置的是 inner 尺寸：宽 = 表格 + main 的 px-2(16)；
-  // 高 = 标题栏 h-8(32) + 表格 + main 的 pb-1(4)
-  await win.setSize(new LogicalSize(Math.ceil(tableW + 16), 32 + tableH + 4));
+  await getCurrentWindow().setSize(
+    new LogicalSize(Math.ceil(tableW + WIN_PAD_X), TITLE_BAR_H + tableH + WIN_PAD_Y),
+  );
 }
 
 defineExpose({ fitWindow });
@@ -131,7 +140,7 @@ async function syncHeightForAdd(active: boolean) {
   const win = getCurrentWindow();
   const inner = await win.innerSize();
   const logical = inner.toLogical(await win.scaleFactor());
-  const fitH = 32 + tableH + 4;
+  const fitH = TITLE_BAR_H + tableH + WIN_PAD_Y;
   if (active) {
     heightBeforeAdd = Math.round(logical.height);
     if (fitH > logical.height) {

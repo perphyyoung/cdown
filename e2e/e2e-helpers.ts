@@ -75,9 +75,14 @@ async function connectAppCdp(
   throw lastErr;
 }
 
+/// 序号对应的数据目录（与 launchApp 内部一致，供 spec 启动前预置 cdown.json）
+export function dataDirFor(seq: number): string {
+  return path.join(ROOT, "temp", `e2e-${seq}`);
+}
+
 /// spawn 一个应用实例并连上 CDP。数据目录隔离到 temp/e2e-<序号>（已 gitignore）
 export async function launchApp(seq = 0): Promise<AppHandle> {
-  const dataDir = path.join(ROOT, "temp", `e2e-${seq}`);
+  const dataDir = dataDirFor(seq);
   const cdpPort = await freePort();
   // 测试侧日志的实例标识（与 cdown.log 里应用侧的行交错时用于区分归属）
   setWorkerTag(`w${process.env.TEST_WORKER_INDEX ?? "0"}-${seq + 1}`);
