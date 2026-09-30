@@ -169,6 +169,28 @@ async function menuFitWindow() {
           +
         </button>
         <button
+          class="flex h-8 w-8 items-center justify-center rounded text-slate-500 hover:bg-slate-800 hover:text-slate-100"
+          title="自适应宽高"
+          @click="menuFitWindow()"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+            <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+            <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+            <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+          </svg>
+        </button>
+        <button
           class="flex h-8 w-8 items-center justify-center rounded hover:bg-slate-800"
           :class="settings.alwaysOnTop ? 'text-slate-100' : 'text-slate-500 hover:text-slate-100'"
           :title="settings.alwaysOnTop ? '取消置顶' : '置顶'"
