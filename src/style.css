@@ -73,3 +73,23 @@ html {
 .dp--tp-wrap [data-test-id="open-time-picker-btn"] {
   display: none;
 }
+
+/* 细滚动条：主表格内容超出窗口时降噪——经典 Windows 滚动条占约 17px 布局宽度，
+   纵向出现时会连锁挤出横向滚动条；细条把这个副作用降到 8px（全应用仅表格一个滚动容器） */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgb(100 116 139 / 0.5);
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgb(100 116 139 / 0.8);
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}

@@ -114,8 +114,44 @@ const { editing, startEdit } = countdownState();
 const mainEl = ref<HTMLElement | null>(null);
 // 内层 w-max 容器：窗口宽高按它的真实渲染尺寸收放
 const innerEl = ref<HTMLElement | null>(null);
-// 进入编辑时聚焦名称输入框
+// 进入新增时记录进入前窗高：退出新增（保存/取消）后恢复到 max(内容高, 进入前高)，
+// 不偷走用户手动拉大的高度；取消时草稿行消失，窗口随之收回这一行
+let heightBeforeAdd: number | null = null;
+
+// 新增草稿行会多出一行高：窗口不够高时纵向滚动条出现，经典滚动条占布局宽度又连锁
+// 挤出横向滚动条。进入新增只长不短，退出时按「进入前高度与当前内容取大」恢复。
+async function syncHeightForAdd(active: boolean) {
+  await nextTick();
+  const tableH = innerEl.value?.offsetHeight ?? 0;
+  const win = getCurrentWindow();
+  const inner = await win.innerSize();
+  const logical = inner.toLogical(await win.scaleFactor());
+  const fitH = 32 + tableH + 4;
+  if (active) {
+    heightBeforeAdd = Math.round(logical.height);
+    if (fitH > logical.height) {
+      await win.setSize(new LogicalSize(Math.round(logical.width), fitH));
+    }
+    // 极端情况下（窗口被拖到很矮）仍可能需要滚动，保证草稿行可见
+    mainEl.value?.querySelector<HTMLElement>("[data-draft]")?.scrollIntoView({ block: "nearest" });
+  } else if (heightBeforeAdd !== null) {
+    const target = Math.max(fitH, heightBeforeAdd);
+    heightBeforeAdd = null;
+    if (Math.abs(target - logical.height) >= 1) {
+      await win.setSize(new LogicalSize(Math.round(logical.width), target));
+    }
+  }
+}
+
+// 进入编辑时聚焦名称输入框；新增模式额外处理窗口高度
 watch(editing, async (v) => {
+  if (v?.mode === "add") {
+    await syncHeightForAdd(true);
+    await nextTick();
+    mainEl.value?.querySelector<HTMLInputElement>("input[data-focus-first]")?.focus();
+    return;
+  }
+  if (heightBeforeAdd !== null) await syncHeightForAdd(false);
   if (!v) return;
   await nextTick();
   mainEl.value?.querySelector<HTMLInputElement>("input[data-focus-first]")?.focus();
@@ -217,7 +253,7 @@ function confirmRemove() {
         </div>
       </template>
       <!-- 新增草稿行：固定显示在最后，保存后随列表按倒计时重排 -->
-      <EditableRow v-if="editing?.mode === 'add'" :style="gridStyle" />
+      <EditableRow v-if="editing?.mode === 'add'" :style="gridStyle" data-draft />
     </div>
 
     <template v-if="menu">
