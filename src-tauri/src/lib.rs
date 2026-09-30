@@ -85,13 +85,18 @@ pub fn run() {
             // 官方窗口状态插件：窗口创建时自动恢复上次尺寸/位置，退出时自动保存。
             // 排除 VISIBLE：主窗口常隐藏到托盘，可见性不参与持久化（否则托盘态退出后
             // 下次启动窗口不显示）。
-            let mut state = tauri_plugin_window_state::Builder::default().with_state_flags(
-                tauri_plugin_window_state::StateFlags::all()
-                    & !tauri_plugin_window_state::StateFlags::VISIBLE
-                    // 边框形态由代码决定（主/设置窗口均无边框自绘），不参与持久化，
-                    // 否则插件会把旧的原生边框状态恢复回来
-                    & !tauri_plugin_window_state::StateFlags::DECORATIONS,
-            );
+            // 日期选择弹窗加入 denylist：它 visible(false) 创建、加载完才 show，
+            // 插件在 show 前恢复尺寸会多算一个 caption 高（与主窗口长高同源），
+            // 而它 resizable(false)、尺寸代码恒定（240x264），本就不该参与持久化。
+            let mut state = tauri_plugin_window_state::Builder::default()
+                .with_denylist(&[commands::date_picker::DATE_PICKER_LABEL])
+                .with_state_flags(
+                    tauri_plugin_window_state::StateFlags::all()
+                        & !tauri_plugin_window_state::StateFlags::VISIBLE
+                        // 边框形态由代码决定（主/设置窗口均无边框自绘），不参与持久化，
+                        // 否则插件会把旧的原生边框状态恢复回来
+                        & !tauri_plugin_window_state::StateFlags::DECORATIONS,
+                );
             // dev/release 状态文件分离：release 用插件默认名（带前置点，插件内硬编码），
             // dev 单独命名，避免两边共享同一份窗口几何
             if cfg!(debug_assertions) {
