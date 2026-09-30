@@ -136,6 +136,6 @@ test.describe("主界面背景色与透明度", () => {
     await expect.poll(() => backgroundRgba(main)).toEqual([...PICKED_RGB, 0.55]);
     settings = await openSettingsWindow(app, main);
     await expect(colorInput(settings)).toHaveValue(PICKED);
-    await expect(settings.getByRole("slider")).toHaveValue("55");
+    await expect(settings.getByRole("slider", { name: "背景透明度" })).toHaveValue("55");
   });
 });

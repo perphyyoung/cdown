@@ -60,6 +60,14 @@ watch(
   { immediate: true },
 );
 
+// 表格基准字号：写 CSS 变量，由 .fs-base/.fs-sm 消费；仅主界面表格引用这两个类，
+// 设置页/日历窗口即使写入也不受影响
+watch(
+  () => settings.value.fontSize,
+  (size) => document.documentElement.style.setProperty("--table-font-size", `${size}px`),
+  { immediate: true },
+);
+
 // 置顶：单一数据源是 Settings——图钉按钮只改设置，此处 watch 把它同步到窗口
 // 实际状态（设置导入后经 settings-changed → reload 也会走到这里）。仅主窗口执行：
 // 设置/日历窗口共用本组件，否则会把它们自身的置顶状态改掉。

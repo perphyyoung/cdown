@@ -213,7 +213,7 @@ function confirmRemove() {
            中心落在它与右邻列的间隙中点（末列右缘落在表格外缘），
            于是每列文字到左右竖线的距离恒等；两侧留白量见 COL_PAD -->
       <div
-        class="group/head grid items-center gap-x-2 border-b border-slate-800 px-1 py-1 text-center text-xs text-slate-500"
+        class="group/head grid items-center gap-x-2 border-b border-slate-800 px-1 py-1 text-center fs-sm text-slate-500"
         :style="gridStyle"
       >
         <span v-for="col in HEADER_COLS" :key="col.key" class="relative" :data-col="col.key">
@@ -233,7 +233,7 @@ function confirmRemove() {
       </div>
       <div
         v-if="rows.length === 0 && editing?.mode !== 'add'"
-        class="py-8 text-center text-xs text-slate-500"
+        class="py-8 text-center fs-sm text-slate-500"
       >
         暂无倒计时，点右上角 ＋ 添加
       </div>
@@ -251,22 +251,22 @@ function confirmRemove() {
                 : 'text-slate-200'
           "
         >
-          <span class="text-xs font-medium" data-col="countdown">{{ formatDays(row.days) }}</span>
+          <span class="fs-sm font-medium" data-col="countdown">{{ formatDays(row.days) }}</span>
           <span
-            class="text-xs"
+            class="fs-sm"
             data-col="target"
             @contextmenu.prevent="openMenu($event, row.item, 'target')"
             >{{ row.item.target_date }}</span
           >
           <span
-            class="truncate text-sm"
+            class="truncate fs-base"
             data-col="name"
             :title="row.item.title"
             @contextmenu.prevent="openMenu($event, row.item, 'name')"
             >{{ row.item.title }}</span
           >
           <span
-            class="truncate text-sm"
+            class="truncate fs-base"
             data-col="note"
             :title="row.item.note ?? ''"
             @contextmenu.prevent="openMenu($event, row.item, 'note')"

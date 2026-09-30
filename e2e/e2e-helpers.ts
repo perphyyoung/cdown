@@ -259,9 +259,9 @@ export async function closeColorPicker(settings: Page, color?: string): Promise<
   }, color ?? null);
 }
 
-/// 拖一次透明度滑杆（input 即保存）
+/// 拖一次透明度滑杆（input 即保存）；设置页另有字号滑杆，按 aria-label 精确定位
 export async function setOpacity(settings: Page, percent: number): Promise<void> {
-  await settings.getByRole("slider").evaluate((el, v) => {
+  await settings.getByRole("slider", { name: "背景透明度" }).evaluate((el, v) => {
     const input = el as HTMLInputElement;
     input.value = String(v);
     input.dispatchEvent(new Event("input", { bubbles: true }));

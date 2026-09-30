@@ -73,6 +73,7 @@ fn save_then_reload_keeps_settings() {
                 background_opacity: 100,
                 background_color: "#0f172a".into(),
                 font_family: "SimSun".into(),
+                font_size: 16,
             };
             Ok(())
         })
@@ -84,4 +85,6 @@ fn save_then_reload_keeps_settings() {
     assert!(!data.settings.always_on_top);
     // 热键也随设置整体持久化
     assert_eq!(data.settings.hotkey.as_deref(), Some("Ctrl+Alt+K"));
+    // 字号随设置整体持久化
+    assert_eq!(data.settings.font_size, 16);
 }

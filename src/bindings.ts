@@ -102,6 +102,11 @@ export type Settings = {
 	 *  空串 = 跟随系统默认栈（旧数据缺字段即落这里，行为不变）
 	 */
 	font_family?: string,
+	/**
+	 *  主界面表格基准字号（px），10–20：名称/备注列取基准值，
+	 *  表头/倒计时/目标日期列取基准 - 2；旧数据缺字段按默认 14 处理
+	 */
+	font_size?: number,
 };
 
 /**  紧急度分级：剩余天数 ≤ threshold_days 时该行采用 color 显示（含当天 days = 0）。 */

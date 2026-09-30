@@ -46,6 +46,8 @@ interface SettingsView {
   backgroundColor: string;
   /** 全局字体家族（纯族名，CSS 拼接在前端）；空串 = 跟随系统默认栈 */
   fontFamily: string;
+  /** 主界面表格基准字号（px），10–20 */
+  fontSize: number;
 }
 
 // bindings 里字段因 Rust 侧 serde(default) 导出为可选，读取前先归一化
@@ -53,6 +55,10 @@ const DEFAULT_WIDTHS: ColumnWidths = { name: 92, target: 70, countdown: 52, note
 const FALLBACK_COLOR = "#fb923c";
 /** 与后端 DEFAULT_BACKGROUND_COLOR 保持一致 */
 export const DEFAULT_BACKGROUND_COLOR = "#0f172a";
+/** 表格字号上下限与默认值，与后端 model.rs 常量一致 */
+export const MIN_FONT_SIZE = 10;
+export const MAX_FONT_SIZE = 20;
+export const DEFAULT_FONT_SIZE = 14;
 
 function normalizeSettings(cfg: Settings): SettingsView {
   const w = cfg.column_widths ?? {};
@@ -73,6 +79,8 @@ function normalizeSettings(cfg: Settings): SettingsView {
     backgroundOpacity: cfg.background_opacity ?? 100,
     backgroundColor: cfg.background_color ?? DEFAULT_BACKGROUND_COLOR,
     fontFamily: cfg.font_family ?? "",
+    // 后端 normalized 已夹到 10–20；缺字段（bindings 可选）回落默认 14
+    fontSize: cfg.font_size ?? DEFAULT_FONT_SIZE,
   };
 }
 
@@ -90,6 +98,7 @@ const settings = ref<SettingsView>({
   backgroundOpacity: 100,
   backgroundColor: DEFAULT_BACKGROUND_COLOR,
   fontFamily: "",
+  fontSize: DEFAULT_FONT_SIZE,
 });
 const today = ref(todayStr());
 const ready = ref(false);
@@ -145,6 +154,7 @@ async function saveSettings(patch: {
   backgroundOpacity?: number;
   backgroundColor?: string;
   fontFamily?: string;
+  fontSize?: number;
 }) {
   const next: Settings = {
     levels: (patch.levels ?? settings.value.levels).map((l) => ({
@@ -161,6 +171,7 @@ async function saveSettings(patch: {
     background_color: patch.backgroundColor ?? settings.value.backgroundColor,
     // 字体家族：空串是合法取值（跟随系统），`??` 只在 undefined 时兜底，不会吞掉它
     font_family: patch.fontFamily ?? settings.value.fontFamily,
+    font_size: Math.round(patch.fontSize ?? settings.value.fontSize),
   };
   settings.value = normalizeSettings(await commands.setSettings(next));
 }

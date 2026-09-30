@@ -98,7 +98,7 @@ onMounted(() => {
     @focusout="onBlur"
   >
     <span
-      class="text-xs font-medium"
+      class="fs-sm font-medium"
       :class="preview.state === 'expired' ? 'text-red-400 line-through' : 'text-slate-400'"
       :style="preview.state === 'level' && preview.color ? { color: preview.color } : {}"
     >
@@ -111,7 +111,7 @@ onMounted(() => {
       inputmode="numeric"
       maxlength="10"
       placeholder="YYYY-MM-DD"
-      class="min-w-0 rounded bg-slate-900/70 px-1.5 h-7 text-center text-xs text-slate-100 outline-none ring-1 ring-slate-700 focus:ring-slate-500 placeholder:text-slate-500"
+      class="min-w-0 rounded bg-slate-900/70 px-1.5 h-7 text-center fs-sm text-slate-100 outline-none ring-1 ring-slate-700 focus:ring-slate-500 placeholder:text-slate-500"
       @click="onDateClick"
     />
     <input
@@ -119,14 +119,14 @@ onMounted(() => {
       v-model="draft.title"
       type="text"
       placeholder="名称"
-      class="min-w-0 rounded bg-slate-900/70 px-1.5 h-7 text-center text-xs text-slate-100 outline-none ring-1 ring-slate-700 focus:ring-slate-500 placeholder:text-slate-500"
+      class="min-w-0 rounded bg-slate-900/70 px-1.5 h-7 text-center fs-base text-slate-100 outline-none ring-1 ring-slate-700 focus:ring-slate-500 placeholder:text-slate-500"
     />
     <input
       ref="noteInputRef"
       v-model="draft.note"
       type="text"
       placeholder="备注"
-      class="min-w-0 rounded bg-slate-900/70 px-1.5 h-7 text-center text-xs text-slate-100 outline-none ring-1 ring-slate-700 focus:ring-slate-500 placeholder:text-slate-500"
+      class="min-w-0 rounded bg-slate-900/70 px-1.5 h-7 text-center fs-base text-slate-100 outline-none ring-1 ring-slate-700 focus:ring-slate-500 placeholder:text-slate-500"
     />
   </div>
 </template>

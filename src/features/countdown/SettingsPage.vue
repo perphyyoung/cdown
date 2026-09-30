@@ -11,7 +11,12 @@ import ConfirmDialog from "@/components/ConfirmDialog.vue";
 import SettingsRow from "./SettingsRow.vue";
 import SettingsToggle from "./SettingsToggle.vue";
 import FontSelect from "./FontSelect.vue";
-import { countdownState, DEFAULT_BACKGROUND_COLOR } from "./useCountdown";
+import {
+  countdownState,
+  DEFAULT_BACKGROUND_COLOR,
+  MAX_FONT_SIZE,
+  MIN_FONT_SIZE,
+} from "./useCountdown";
 import type { UrgencyLevel } from "./logic";
 
 // 独立设置窗口的根视图：与主窗口各自持有状态副本，保存后广播刷新
@@ -77,6 +82,17 @@ async function onFontFamilyChange(value: string) {
     await saveSettings({ fontFamily: value });
     await emit("settings-changed", null);
     msg.value = "字体已更新";
+  } catch (e) {
+    error.value = String(e);
+  }
+}
+
+// 表格字号：input 即保存广播，拖滑杆主窗口实时缩放（与透明度同模式）
+async function onFontSizeChange(v: number) {
+  try {
+    await saveSettings({ fontSize: v });
+    await emit("settings-changed", null);
+    error.value = "";
   } catch (e) {
     error.value = String(e);
   }
@@ -461,6 +477,28 @@ const btnSmCls =
 
         <div class="flex items-center justify-between gap-3 py-3">
           <div class="min-w-0">
+            <dt class="text-slate-300">字体大小</dt>
+            <dd class="text-sm text-slate-500">
+              主界面表格字号（10–20px），默认 14，拖动主窗口实时缩放
+            </dd>
+          </div>
+          <div class="flex shrink-0 items-center gap-2">
+            <input
+              type="range"
+              :min="MIN_FONT_SIZE"
+              :max="MAX_FONT_SIZE"
+              step="1"
+              aria-label="表格字体大小"
+              :value="settings.fontSize"
+              class="w-32 accent-slate-400"
+              @input="onFontSizeChange(Number(($event.target as HTMLInputElement).value))"
+            />
+            <span class="w-12 text-right text-sm text-slate-400">{{ settings.fontSize }}px</span>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between gap-3 py-3">
+          <div class="min-w-0">
             <dt class="text-slate-300">主界面背景色</dt>
             <dd class="text-sm text-slate-500">
               点击取色器自定义，拖动时主窗口实时预览，关闭后保存
@@ -506,6 +544,7 @@ const btnSmCls =
               type="range"
               min="10"
               max="100"
+              aria-label="背景透明度"
               :value="settings.backgroundOpacity"
               class="w-32 accent-slate-400"
               @input="onOpacityChange(Number(($event.target as HTMLInputElement).value))"

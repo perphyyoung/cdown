@@ -1,6 +1,6 @@
 use super::{
     ColumnWidths, CountdownItem, Settings, UrgencyLevel, DEFAULT_BACKGROUND_COLOR, DEFAULT_HOTKEY,
-    MIN_OPACITY,
+    MAX_FONT_SIZE, MIN_FONT_SIZE, MIN_OPACITY,
 };
 
 fn level(days: u32, color: &str) -> UrgencyLevel {
@@ -88,6 +88,7 @@ fn settings_normalized_sorts_dedupes_and_fixes_colors() {
         background_opacity: 100,
         background_color: DEFAULT_BACKGROUND_COLOR.into(),
         font_family: String::new(),
+        font_size: 14,
     }
     .normalized();
     let thresholds: Vec<u32> = s.levels.iter().map(|l| l.threshold_days).collect();
@@ -111,6 +112,7 @@ fn settings_normalized_caps_levels() {
         background_opacity: 100,
         background_color: DEFAULT_BACKGROUND_COLOR.into(),
         font_family: String::new(),
+        font_size: 14,
     }
     .normalized();
     assert_eq!(s.levels.len(), 6);
@@ -166,6 +168,21 @@ fn font_family_normalized_trims_and_falls_back() {
         }
         .normalized();
         assert_eq!(s.font_family, "", "非法字体值 {bad} 应回落空串");
+    }
+}
+
+#[test]
+fn font_size_defaults_and_clamps() {
+    // 默认 14
+    assert_eq!(Settings::default().font_size, 14);
+    // 过小/过大夹到上下限；合法值原样保留；0（旧数据显式写入）回落默认 14
+    for (input, want) in [(3, MIN_FONT_SIZE), (40, MAX_FONT_SIZE), (16, 16), (0, 14)] {
+        let s = Settings {
+            font_size: input,
+            ..Settings::default()
+        }
+        .normalized();
+        assert_eq!(s.font_size, want, "font_size {input} 归一化应为 {want}");
     }
 }
 

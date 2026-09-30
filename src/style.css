@@ -23,10 +23,22 @@ body {
   --font-family:
     ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei",
     Roboto, Arial, sans-serif;
+  /* 主界面表格基准字号：设置页「字体大小」覆盖；未设置时默认 14 */
+  --table-font-size: 14px;
 }
 
 html {
   font-family: var(--font-family);
+}
+
+/* 主界面表格两级字号：基准（名称/备注列及对应编辑框）与小级（表头/倒计时/目标日期/空态，
+   恒比基准小 2px，保持原 12/14 两级比例）。无层声明，优先级高于 Tailwind 的 text-xs/text-sm。
+   行高不随字号变化（行 h-9、输入框 h-7 固定），调字号只改变文字与窗口宽度。 */
+.fs-base {
+  font-size: var(--table-font-size);
+}
+.fs-sm {
+  font-size: calc(var(--table-font-size) - 2px);
 }
 
 /* VueDatePicker 适配（v14：结构变量在 :root，颜色变量在主题类上） */

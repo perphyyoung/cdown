@@ -84,6 +84,16 @@ fn default_background_color() -> String {
     DEFAULT_BACKGROUND_COLOR.into()
 }
 
+/// 表格基准字号默认值（px）：名称/备注列
+const DEFAULT_FONT_SIZE: u8 = 14;
+/// 表格字号上下限（px）
+pub const MIN_FONT_SIZE: u8 = 10;
+pub const MAX_FONT_SIZE: u8 = 20;
+
+fn default_font_size() -> u8 {
+    DEFAULT_FONT_SIZE
+}
+
 fn default_levels() -> Vec<UrgencyLevel> {
     vec![
         UrgencyLevel {
@@ -135,6 +145,10 @@ pub struct Settings {
     /// 空串 = 跟随系统默认栈（旧数据缺字段即落这里，行为不变）
     #[serde(default)]
     pub font_family: String,
+    /// 主界面表格基准字号（px），10–20：名称/备注列取基准值，
+    /// 表头/倒计时/目标日期列取基准 - 2；旧数据缺字段按默认 14 处理
+    #[serde(default = "default_font_size")]
+    pub font_size: u8,
 }
 
 impl Default for Settings {
@@ -147,6 +161,7 @@ impl Default for Settings {
             background_opacity: default_opacity(),
             background_color: default_background_color(),
             font_family: String::new(),
+            font_size: default_font_size(),
         }
     }
 }
@@ -192,6 +207,12 @@ impl Settings {
             font_family
         } else {
             String::new()
+        };
+        // 字号：夹到 10–20，旧数据 0 或缺字段回落默认 14
+        self.font_size = if self.font_size == 0 {
+            DEFAULT_FONT_SIZE
+        } else {
+            self.font_size.clamp(MIN_FONT_SIZE, MAX_FONT_SIZE)
         };
         self
     }
