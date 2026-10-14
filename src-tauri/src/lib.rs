@@ -28,6 +28,8 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::settings::set_settings,
             commands::settings::reset_settings,
             commands::settings::open_settings,
+            commands::settings::reveal_settings_window,
+            commands::settings::hide_settings_window,
             commands::settings::get_font_family_map,
             commands::data::export_items,
             commands::data::import_items,
@@ -187,15 +189,17 @@ pub fn run() {
                     .on_menu_event(|app, event| match event.id.as_ref() {
                         "show" => commands::hotkey::show_main_window(app),
                         // 设置：唤起主窗口（供对照）并打开独立设置窗口。
+                        // 托盘入口没有点击位置，锚点传 None（Rust 内回落主窗口右上角）。
                         // 菜单事件处理器在主线程，build() 必须丢到独立线程，
                         // 否则 Windows 上死锁（官方文档警告，同 async 命令）。
                         "settings" => {
                             commands::hotkey::show_main_window(app);
                             let settings_app = app.clone();
                             tauri::async_runtime::spawn(async move {
-                                if let Err(e) =
-                                    crate::commands::settings::open_settings_window(&settings_app)
-                                {
+                                if let Err(e) = crate::commands::settings::open_settings_window(
+                                    &settings_app,
+                                    None,
+                                ) {
                                     log_warn!("打开设置窗口失败：{e}");
                                 }
                             });

@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalSize } from "@tauri-apps/api/dpi";
-import { emit } from "@tauri-apps/api/event";
+import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { commands } from "@/bindings";
@@ -21,6 +21,9 @@ import type { UrgencyLevel } from "./logic";
 
 // 独立设置窗口的根视图：与主窗口各自持有状态副本，保存后广播刷新
 const { settings, ready, error, reload, saveSettings, resetSettings } = countdownState();
+
+// 与 Rust SETTINGS_OPEN_EVENT 一致：窗口从隐藏被复用唤起时由 Rust 发出
+const SETTINGS_OPEN_EVENT = "settings-open";
 
 // 版本单一事实源 package.json（vite define 注入）
 const appVersion = __APP_VERSION__;
@@ -57,24 +60,110 @@ function onConfirm() {
 const rootEl = ref<HTMLElement | null>(null);
 const win = getCurrentWindow();
 
-// 窗口高度自适应内容：量内容实际高度后 setSize（宽度保持不变）
+// 窗口高度自适应内容：宽度归用户（可拖拽），高度归内容——两个权威各管一轴，互不覆盖。
+// 只在**可见时**改尺寸：隐藏态 set_size 在 Windows 上会多算一个 caption 高（见 lib.rs 主窗口
+// 尺寸二次恢复注释），首帧尺寸统一由 revealSettingsWindow 在显示后收口。
+const revealed = ref(false);
+// reveal 防重入：挂载流程与 settings-open 事件可能同时到达
+let revealing = false;
+// 最近一次成型的宽度：宽度变了（用户拖拽）才需要重算高度，高度变化不触发，避免自激
+let fittedWidth = 0;
+// 宽度观察器：窗口宽度一变，文字重排会改变内容高度，需按新宽度重算，否则内容被裁
+let widthObserver: ResizeObserver | null = null;
+
+// 重开时的瞬态复位：提示条/错误条/录制态/确认框都不该跨次残留
+function resetTransient() {
+  // 取色会话没关（取色器还开着）就隐藏：把主窗口拉回已保存色，与 discardColorSession 同语义
+  if (previewColor.value !== null) void emit("background-preview", settings.value.backgroundColor);
+  msg.value = "";
+  error.value = "";
+  recording.value = false;
+  confirmBox.value = null;
+  previewColor.value = null;
+  undoColor.value = null;
+  discardedColor.value = null;
+}
+
+// 显示窗口：先量高、再让 Rust 一次性 show + setSize，出现即终态尺寸（不给自己留改尺寸的机会）
+async function reveal() {
+  if (revealing) return;
+  revealing = true;
+  try {
+    resetTransient();
+    await nextTick(); // 复位后 DOM 才是最终内容，量到的高度才准
+    const el = rootEl.value;
+    const height = Math.ceil(el?.getBoundingClientRect().height ?? 0);
+    await commands.revealSettingsWindow(height);
+    revealed.value = true;
+    observeWidth(el);
+  } finally {
+    revealing = false;
+  }
+}
+
+// 宽度可拖：拖完重算高度。只比较宽度，自身 setSize 引起的高度变化不会再触发
+function observeWidth(el: HTMLElement | null) {
+  if (!el || widthObserver) return;
+  widthObserver = new ResizeObserver((entries) => {
+    const width = Math.round(entries[0]?.contentRect.width ?? 0);
+    if (!revealed.value || width < 1 || Math.abs(width - fittedWidth) <= 1) return;
+    void fitHeight();
+  });
+  widthObserver.observe(el);
+}
+
+// 内容变化时的高度自适应：高度没变就不碰窗口（拖字号/透明度滑杆时不抖）
 async function fitHeight() {
   await nextTick();
-  if (!rootEl.value) return;
-  const content = rootEl.value.getBoundingClientRect().height;
-  const inner = await win.innerSize();
-  const width = inner.toLogical(await win.scaleFactor()).width;
-  await win.setSize(new LogicalSize(Math.round(width), Math.ceil(content)));
+  if (!revealed.value || !rootEl.value) return;
+  const content = Math.ceil(rootEl.value.getBoundingClientRect().height);
+  const inner = (await win.innerSize()).toLogical(await win.scaleFactor());
+  fittedWidth = Math.round(inner.width);
+  if (content < 1 || Math.abs(inner.height - content) <= 1) return;
+  await win.setSize(new LogicalSize(Math.round(inner.width), content));
+}
+
+// 隐藏而非关闭：窗口常驻，重开毫秒级且无重载白屏；瞬态与高度在下次 reveal 一并复位
+async function hideSelf() {
+  revealed.value = false;
+  await commands.hideSettingsWindow();
+}
+
+// Esc = 隐藏（与 ✕ 同一路径）；热键录制与确认框自己消费 Esc，别把它们吞掉
+function onGlobalKeydown(e: KeyboardEvent) {
+  if (e.key !== "Escape" || e.defaultPrevented) return;
+  if (recording.value || confirmBox.value !== null) return;
+  void hideSelf();
 }
 
 watch([ready, msg, error, settings], () => void fitHeight());
+
+// 首次打开：根节点是 v-if="ready"，reload 完成前量不到高度，必须等它翻真
+watch(
+  ready,
+  (isReady) => {
+    if (isReady && !revealed.value) void reveal();
+  },
+  { immediate: true },
+);
+
+let unlistenOpen: UnlistenFn | null = null;
 
 onMounted(() => {
   void reload();
   void isEnabled()
     .then((on) => (autostart.value = on))
     .catch((e) => (error.value = String(e)));
-  void fitHeight();
+  // 复用打开：Rust 只 show + 发事件，高度在这里重新量（首次打开由上面的 ready 触发）
+  void listen(SETTINGS_OPEN_EVENT, () => void reveal()).then((u) => (unlistenOpen = u));
+  document.addEventListener("keydown", onGlobalKeydown);
+});
+
+onUnmounted(() => {
+  unlistenOpen?.();
+  widthObserver?.disconnect();
+  widthObserver = null;
+  document.removeEventListener("keydown", onGlobalKeydown);
 });
 
 async function onFontFamilyChange(value: string) {
@@ -483,8 +572,8 @@ const btnSmCls =
       </span>
       <button
         class="ml-auto h-8 w-10 text-slate-500 hover:bg-slate-800 hover:text-slate-100"
-        title="关闭"
-        @click="getCurrentWindow().close()"
+        title="关闭（Esc）"
+        @click="hideSelf()"
       >
         ✕
       </button>

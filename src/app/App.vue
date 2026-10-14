@@ -85,9 +85,21 @@ async function togglePin() {
   await saveSettings({ alwaysOnTop: !settings.value.alwaysOnTop });
 }
 
+// 设置窗口锚定用：⚙ 按钮的屏幕位置（逻辑像素），窗口从其右下角向下展开
+const gearRef = ref<HTMLButtonElement | null>(null);
+
 async function openSettings() {
   try {
-    await commands.openSettings();
+    const el = gearRef.value;
+    if (!el) {
+      await commands.openSettings(null, null);
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    const win = getCurrentWindow();
+    // 屏幕坐标 = 窗口外框位置 + 元素在视口内的位置（与打开日期弹窗同一套路）
+    const origin = (await win.outerPosition()).toLogical(await win.scaleFactor());
+    await commands.openSettings(origin.x + rect.right, origin.y + rect.bottom);
   } catch (e) {
     error.value = String(e);
   }
@@ -234,6 +246,7 @@ async function menuFitWindow() {
           </svg>
         </button>
         <button
+          ref="gearRef"
           class="flex h-8 w-8 items-center justify-center rounded text-slate-500 hover:bg-slate-800 hover:text-slate-100"
           title="设置"
           @click="openSettings()"

@@ -21,11 +21,20 @@ export const commands = {
 	 */
 	resetSettings: () => __TAURI_INVOKE<Settings>("reset_settings"),
 	/**
-	 *  打开设置窗口（前端 ⚙ 按钮调用）。
+	 *  打开设置窗口（前端 ⚙ 按钮调用；anchor 为 ⚙ 的右下角屏幕坐标，托盘入口不传）。
 	 *  必须是 async 命令：WebviewWindowBuilder::build() 在 Windows 上于同步命令中
 	 *  会死锁（官方文档明确警告，命令/事件处理器里要改用 async 或独立线程）。
 	 */
-	openSettings: () => __TAURI_INVOKE<null>("open_settings"),
+	openSettings: (anchorX: number | null, anchorY: number | null) => __TAURI_INVOKE<null>("open_settings", { anchorX, anchorY }),
+	/**
+	 *  显示设置窗口（前端量好内容高度后调用）。
+	 *  必须先 show 再 set_size：隐藏态 set_size 在 Windows 上会多算一个 caption 高（与主窗口
+	 *  重启长高同源，见 lib.rs 的二次恢复注释），只有显示后的尺寸才准。宽度沿用当前值
+	 *  （用户可拖），高度由内容唯一决定——两个权威各管一轴，不再互相覆盖。
+	 */
+	revealSettingsWindow: (height: number | null) => __TAURI_INVOKE<null>("reveal_settings_window", { height }),
+	/**  隐藏设置窗口（✕ 与 Esc 调用）：窗口常驻复用，不销毁。 */
+	hideSettingsWindow: () => __TAURI_INVOKE<null>("hide_settings_window"),
 	/**
 	 *  字体中文名映射（数据目录 `font-family-map.toml`，缺失时写入默认模板）。
 	 *  仅用于设置页下拉的显示文案，失败回落内置默认映射、不报错。
