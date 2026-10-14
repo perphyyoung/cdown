@@ -3,7 +3,7 @@
  * 注意：窗口几何由插件写在应用配置目录，与 CDOWN_DATA_DIR 无关，本 spec 会改写本机
  * `window-state.dev.json`（即 pnpm dev 用的那份几何）。
  */
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import {
   disposeApp,
   launchApp,
@@ -11,6 +11,7 @@ import {
   mainPage,
   readWindowState,
   restartApp,
+  test,
   type AppHandle,
 } from "./e2e-helpers";
 import { e2eLog } from "./e2e-logger";

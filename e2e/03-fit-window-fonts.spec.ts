@@ -8,9 +8,9 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { e2eLog } from "./e2e-logger";
-import { dataDirFor, disposeApp, launchApp, mainPage, type AppHandle } from "./e2e-helpers";
+import { dataDirFor, disposeApp, launchApp, mainPage, test, type AppHandle } from "./e2e-helpers";
 
 const FONTS = ["Microsoft YaHei", "LXGW WenKai Screen R", "Noto Sans SC"] as const;
 const DEFAULT_STACK =

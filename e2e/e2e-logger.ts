@@ -63,6 +63,15 @@ function send(level: Level, args: unknown[]): void {
   write(`[${level}] [E2E${tag}] ${fmt(args)}`);
 }
 
+/// 用例分节标记（形如 `[TEST] [E2E w0] ▶ 05-settings-window-resize › 设置窗缩放 › 用例名`）。
+/// 与业务日志共用阈值（INFO）——默认 debug 下写入；改为 warn 后消失（只记异常信号）。
+/// worker 号由调用方传入：用例标题要在应用实例启动之前就记录，那时 workerTag（含实例序号）还没设置。
+/// 调用方是 e2e-helpers 的 testSection fixture，spec 侧零改动。
+export function testLog(workerIndex: number, ...args: unknown[]): void {
+  if (LEVELS.INFO < threshold) return;
+  write(`[TEST] [E2E w${workerIndex}] ${fmt(args)}`);
+}
+
 export const e2eLog = {
   debug: (...args: unknown[]) => send("DEBUG", args),
   info: (...args: unknown[]) => send("INFO", args),

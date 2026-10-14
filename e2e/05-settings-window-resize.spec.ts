@@ -8,9 +8,19 @@
  * 注意：窗口几何由插件写在应用配置目录，与 CDOWN_DATA_DIR 无关，本 spec 会改写本机
  * `window-state.dev.json`（即 pnpm dev 用的那份几何，末尾会拖回常规宽度）。
  * 断言按方向/是否变化/是否可滚来写：合成指针的移动会被 Chromium 量化合并，精确像素值属于实现细节。
+ *
+ * 跑本文件时**不要动鼠标**：拖拽走的是真实指针事件通道，人手移动会和合成拖拽混在一起
+ * （曾出现窗口反向变窄：真指针把起点参照拖到了另一侧），这不是产品问题。
  */
-import { expect, test, type Page } from "@playwright/test";
-import { disposeApp, launchApp, mainPage, openSettingsWindow, type AppHandle } from "./e2e-helpers";
+import { expect, type Page } from "@playwright/test";
+import {
+  disposeApp,
+  launchApp,
+  mainPage,
+  openSettingsWindow,
+  test,
+  type AppHandle,
+} from "./e2e-helpers";
 import { e2eLog } from "./e2e-logger";
 
 /// 与 SettingsPage.vue 的 MIN_WIDTH 一致

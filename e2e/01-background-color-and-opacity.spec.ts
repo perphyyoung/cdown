@@ -3,7 +3,7 @@
 /// 取色器是页面内 popover，无法用 Playwright 操作原生控件，故按 DOM 事件序列驱动
 /// （拖动期间多次 input、关闭时一次 change，且关闭会把取色器里的颜色推回输入框），
 /// 这是浏览器对 <input type="color"> 的标准分工，也是被测逻辑唯一关心的输入。
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import {
   backgroundRgba,
   closeColorPicker,
@@ -20,6 +20,7 @@ import {
   resetButton,
   restartApp,
   setOpacity,
+  test,
   undoButton,
   type AppHandle,
 } from "./e2e-helpers";

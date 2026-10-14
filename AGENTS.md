@@ -21,6 +21,9 @@ UI/交互硬约定见 `design.md`；日志的文件位置、级别开关与打�
 - 跑 e2e **一律不加管道或重定向**（曾用 `2>&1 | Tee-Object ... | Select-Object` 触发沙箱权限询问），
   **也不得截取输出**：`tail`/`Select-Object -Last`/`--reporter` 之类一律不用，失败时必须看到完整报错
   （期望值、实际值、堆栈、失败用例清单），否则会被截断的尾部掩盖真正的第一个失败原因。
+- `cdown.log` 里 `[TEST]` 行按用例分节（`▶ 标题` / `✓ 通过 耗时` / `✗ 失败 耗时 + 首行原因`），
+  由 `e2e/e2e-helpers.ts` 的 auto fixture 写入：spec 侧的 `test` 必须从 `./e2e-helpers` 导入，
+  `expect` 仍来自 `@playwright/test`。
 - `CARGO_TARGET_DIR` 指向共享目录 `D:\cargo-shared-target`（机器级环境变量），
   所有指向构建产物的脚本必须读该环境变量、不得硬编码；共享 target 是全局一把锁，
   与其它 tauri 项目不能并行 build。

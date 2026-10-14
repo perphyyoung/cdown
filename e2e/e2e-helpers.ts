@@ -8,8 +8,8 @@ import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import { execSync, spawn, type ChildProcess } from "node:child_process";
-import { chromium, expect, type Browser, type Page } from "@playwright/test";
-import { e2eLog, setWorkerTag } from "./e2e-logger";
+import { chromium, expect, test as base, type Browser, type Page } from "@playwright/test";
+import { e2eLog, setWorkerTag, testLog } from "./e2e-logger";
 
 /// 项目根（e2e/ 的上一级）
 const ROOT = path.join(import.meta.dirname, "..");
@@ -329,3 +329,36 @@ export function expectPersistedOpacity(dataDir: string, percent: number): Promis
     .poll(() => readPersistedSettings(dataDir).background_opacity, { timeout: 2_000 })
     .toBe(percent);
 }
+
+/// ---- 用例分节日志（[TEST] 行）----
+
+/// auto fixture：每条用例在 cdown.log 里留下 ▶（标题）与结果 + 耗时行，spec 侧零改动
+/// （只把 test 换成从本文件导入）。与业务日志同阈值（INFO）——默认 debug 下写入，
+/// 改为 warn 后消失（只记异常信号）。标题取 testInfo.titlePath（含 describe 层级），
+/// 前面拼文件名；日志里按用例切段，一眼能看出失败用例之前应用侧都发生了什么。
+/// worker 号显式传入（见 e2e-logger.testLog 注释）。
+const helpersTest = base.extend<{ testSection: void }>({
+  testSection: [
+    async ({}, use, testInfo) => {
+      const name = `${path.basename(testInfo.file, ".spec.ts")} › ${testInfo.titlePath.slice(1).join(" › ")}`;
+      testLog(testInfo.workerIndex, `▶ ${name}`);
+      const startedAt = Date.now();
+      await use();
+      const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+      if (testInfo.status === "passed") {
+        testLog(testInfo.workerIndex, `✓ 通过 ${seconds}s ${name}`);
+        return;
+      }
+      // 失败原因只取首行：完整堆栈看 playwright 输出，日志保持可扫
+      const reason = testInfo.errors[0]?.message?.split("\n")[0] ?? "";
+      testLog(
+        testInfo.workerIndex,
+        `✗ ${testInfo.status} ${seconds}s ${name}${reason ? ` — ${reason}` : ""}`,
+      );
+    },
+    { scope: "test", auto: true },
+  ],
+});
+
+/// spec 侧的 test 一律从本文件导入（分节日志挂在它上面），expect 仍来自 @playwright/test
+export const test = helpersTest;
