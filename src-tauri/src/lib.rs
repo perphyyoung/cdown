@@ -90,6 +90,9 @@ pub fn run() {
             // 官方窗口状态插件：窗口创建时自动恢复上次尺寸/位置，退出时自动保存。
             // 排除 VISIBLE：主窗口常隐藏到托盘，可见性不参与持久化（否则托盘态退出后
             // 下次启动窗口不显示）。
+            // 排除 MAXIMIZED：主窗口禁止最大化（conf 的 maximizable:false），而插件的恢复是
+            // 程序化 maximize()，不受 WS_MAXIMIZEBOX 限制——历史状态文件里的 maximized:true
+            // 会被原样恢复回来，必须让它不参与持久化。
             // 日期选择弹窗加入 denylist：它 visible(false) 创建、加载完才 show，
             // 插件在 show 前恢复尺寸会多算一个 caption 高（与主窗口长高同源），
             // 而它 resizable(false)、尺寸代码恒定（240x264），本就不该参与持久化。
@@ -98,6 +101,7 @@ pub fn run() {
                 .with_state_flags(
                     tauri_plugin_window_state::StateFlags::all()
                         & !tauri_plugin_window_state::StateFlags::VISIBLE
+                        & !tauri_plugin_window_state::StateFlags::MAXIMIZED
                         // 边框形态由代码决定（主/设置窗口均无边框自绘），不参与持久化，
                         // 否则插件会把旧的原生边框状态恢复回来
                         & !tauri_plugin_window_state::StateFlags::DECORATIONS,
@@ -210,7 +214,10 @@ pub fn run() {
                             // single-instance 锁不冲突。
                             use tauri_plugin_window_state::{AppHandleExt, StateFlags};
                             let _ = app.save_window_state(
-                                StateFlags::all() & !StateFlags::VISIBLE & !StateFlags::DECORATIONS,
+                                StateFlags::all()
+                                    & !StateFlags::VISIBLE
+                                    & !StateFlags::MAXIMIZED
+                                    & !StateFlags::DECORATIONS,
                             );
                             log_info!("托盘触发应用重启");
                             app.restart();
@@ -219,7 +226,10 @@ pub fn run() {
                             // 退出前显式保存窗口状态（插件在应用退出时也会自动保存）
                             use tauri_plugin_window_state::{AppHandleExt, StateFlags};
                             let _ = app.save_window_state(
-                                StateFlags::all() & !StateFlags::VISIBLE & !StateFlags::DECORATIONS,
+                                StateFlags::all()
+                                    & !StateFlags::VISIBLE
+                                    & !StateFlags::MAXIMIZED
+                                    & !StateFlags::DECORATIONS,
                             );
                             app.exit(0);
                         }

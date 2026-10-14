@@ -71,7 +71,8 @@ pub fn open_settings_window(
             // resizable(false) 后该子窗口直接不创建，底边/四角彻底不是热区（也没有残留的
             // 缩放光标）。宽度由前端自绘的左右把手驱动（见 SettingsPage.vue）。
             .resizable(false)
-            // 双击自绘标题栏会走原生 move loop，maximizable 时会被最大化并撑出空白区域
+            // 双击自绘标题栏会触发注入脚本的 internal_toggle_maximize（Tauri 侧判 is_maximizable），
+            // 不关掉就会被撑到屏幕大小、露出大片空白
             .maximizable(false)
             .always_on_top(true)
             .skip_taskbar(true)

@@ -53,4 +53,22 @@ test.describe("主窗口几何", () => {
     expect(heights.at(-1)).toBe(heights[0]);
     expect(widths.at(-1)).toBe(widths[0]);
   });
+
+  test("双击标题栏不会最大化（主窗口禁止最大化）", async () => {
+    const before = await mainInnerSize(main);
+
+    // 标题栏空白处双击：Tauri 注入脚本在 detail === 2 时 invoke internal_toggle_maximize，
+    // 而 tauri 侧会判 is_maximizable()——主窗口 conf 里 maximizable:false，这里必须什么都不发生
+    const header = main.locator("header");
+    const box = (await header.boundingBox())!;
+    await main.mouse.dblclick(box.x + 40, box.y + box.height / 2);
+    await main.waitForTimeout(300);
+
+    const after = await mainInnerSize(main);
+    e2eLog.info(`[maximize-guard] ${JSON.stringify(before)} → ${JSON.stringify(after)}`);
+    // 只看尺寸：最大化会把视口撑到屏幕大小；位置不断言——标题栏按下还会走一次原生拖动循环，
+    // 期间真实鼠标移动会带动窗口
+    expect(after.width).toBe(before.width);
+    expect(after.height).toBe(before.height);
+  });
 });
