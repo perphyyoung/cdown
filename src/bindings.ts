@@ -27,12 +27,13 @@ export const commands = {
 	 */
 	openSettings: (anchorX: number | null, anchorY: number | null) => __TAURI_INVOKE<null>("open_settings", { anchorX, anchorY }),
 	/**
-	 *  显示设置窗口（前端量好内容高度后调用）。
+	 *  显示设置窗口（前端量好内容高度后调用），返回本次的可用高度上限（None = 不限制），
+	 *  供前端后续改宽时继续夹取。
 	 *  必须先 show 再 set_size：隐藏态 set_size 在 Windows 上会多算一个 caption 高（与主窗口
 	 *  重启长高同源，见 lib.rs 的二次恢复注释），只有显示后的尺寸才准。宽度沿用当前值
-	 *  （用户可拖），高度由内容唯一决定——两个权威各管一轴，不再互相覆盖。
+	 *  （用户可拖），高度 = min(内容高, 可用高)——两个权威各管一轴，不再互相覆盖。
 	 */
-	revealSettingsWindow: (height: number | null) => __TAURI_INVOKE<null>("reveal_settings_window", { height }),
+	revealSettingsWindow: (height: number | null) => __TAURI_INVOKE<number | null>("reveal_settings_window", { height }),
 	/**  隐藏设置窗口（✕ 与 Esc 调用）：窗口常驻复用，不销毁。 */
 	hideSettingsWindow: () => __TAURI_INVOKE<null>("hide_settings_window"),
 	/**

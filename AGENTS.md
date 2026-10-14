@@ -15,7 +15,12 @@ UI/交互硬约定见 `design.md`；日志的文件位置、级别开关与打�
 - 命令输出需要截断时**一律 `tail -100`**，不得用其它行数。
 - 质量门唯一入口：`pnpm check` = format → build:rs → gen:bindings → typecheck → build。
 - 测试：`pnpm test:ui`（vitest，纯逻辑）+ `pnpm test:rs`（cargo test）。
-- `pnpm e2e` 一律直接执行，**不附加任何参数、管道或重定向**（曾用 `2>&1 | Tee-Object ... | Select-Object` 触发沙箱权限询问）。
+- e2e **默认只跑相关 spec**，非必要不全量跑：改代码后先复跑**失败的那条** spec，再跑受影响的相关 spec，
+  `pnpm e2e e2e/<具体文件>`；
+  只有提交前、或改动影响面跨多个切片时才跑全量 `pnpm e2e`。
+- 跑 e2e **一律不加管道或重定向**（曾用 `2>&1 | Tee-Object ... | Select-Object` 触发沙箱权限询问），
+  **也不得截取输出**：`tail`/`Select-Object -Last`/`--reporter` 之类一律不用，失败时必须看到完整报错
+  （期望值、实际值、堆栈、失败用例清单），否则会被截断的尾部掩盖真正的第一个失败原因。
 - `CARGO_TARGET_DIR` 指向共享目录 `D:\cargo-shared-target`（机器级环境变量），
   所有指向构建产物的脚本必须读该环境变量、不得硬编码；共享 target 是全局一把锁，
   与其它 tauri 项目不能并行 build。

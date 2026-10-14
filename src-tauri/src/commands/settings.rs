@@ -25,6 +25,8 @@ const SETTINGS_WIDTH: f64 = 640.0;
 const SETTINGS_FALLBACK_HEIGHT: f64 = 760.0;
 /// 锚点与设置窗口上边缘的间距
 const ANCHOR_GAP: f64 = 4.0;
+/// 设置窗口下边缘与工作区底边的最小间距
+const BOTTOM_MARGIN: f64 = 16.0;
 /// 锚定后至少留在工作区内的可见高度
 const MIN_VISIBLE_HEIGHT: f64 = 160.0;
 
@@ -63,7 +65,14 @@ pub fn open_settings_window(
             .title("cdown 设置")
             .inner_size(SETTINGS_WIDTH, SETTINGS_FALLBACK_HEIGHT)
             .decorations(false)
-            .resizable(true) // 宽度可拖；高度始终由内容决定（前端量高后 reveal）
+            // 关掉原生缩放：高度恒等于内容，任何方向的原生拖拽都会留下空白区域。
+            // 无边框窗口的缩放热区由 tauri-runtime-wry 的 TAURI_DRAG_RESIZE_BORDERS 子窗口
+            // 提供，而它对 WM_NCHITTEST 的第一件事就是 `style & WS_SIZEBOX`——
+            // resizable(false) 后该子窗口直接不创建，底边/四角彻底不是热区（也没有残留的
+            // 缩放光标）。宽度由前端自绘的左右把手驱动（见 SettingsPage.vue）。
+            .resizable(false)
+            // 双击自绘标题栏会走原生 move loop，maximizable 时会被最大化并撑出空白区域
+            .maximizable(false)
             .always_on_top(true)
             .skip_taskbar(true)
             .visible(false); // 前端量好高度再显示：避免空窗闪现与出现后再改尺寸的跳变
@@ -116,32 +125,55 @@ fn anchored_position(app: &AppHandle, anchor: Option<(f64, f64)>) -> Option<Logi
     ))
 }
 
-/// 显示设置窗口（前端量好内容高度后调用）。
+/// 还能给设置窗口多少高度（逻辑像素）：工作区底边 - 窗口上边缘 - 底部余量。
+/// 内容比它还高时窗口就夹在这里，多出来的内容由前端的内容区纵向滚动兜住
+/// （见 SettingsPage.vue）——屏幕高度有限，窄窗口的内容可以轻松超过一屏。
+/// 取不到显示器/位置信息时返回 None（不限制）。
+fn max_content_height(win: &tauri::WebviewWindow) -> Option<f64> {
+    let scale = win.scale_factor().ok()?;
+    let top = win.outer_position().ok()?.to_logical::<f64>(scale).y;
+    let monitor = win.current_monitor().ok().flatten()?;
+    let work_area = monitor.work_area();
+    let area_pos = work_area.position.to_logical::<f64>(scale);
+    let area_size = work_area.size.to_logical::<f64>(scale);
+    let bottom = area_pos.y + area_size.height;
+    Some((bottom - top - BOTTOM_MARGIN).max(MIN_VISIBLE_HEIGHT))
+}
+
+/// 显示设置窗口（前端量好内容高度后调用），返回本次的可用高度上限（None = 不限制），
+/// 供前端后续改宽时继续夹取。
 /// 必须先 show 再 set_size：隐藏态 set_size 在 Windows 上会多算一个 caption 高（与主窗口
 /// 重启长高同源，见 lib.rs 的二次恢复注释），只有显示后的尺寸才准。宽度沿用当前值
-/// （用户可拖），高度由内容唯一决定——两个权威各管一轴，不再互相覆盖。
+/// （用户可拖），高度 = min(内容高, 可用高)——两个权威各管一轴，不再互相覆盖。
 #[tauri::command]
 #[specta::specta]
-pub fn reveal_settings_window(app: AppHandle, height: Option<f64>) -> Result<(), CommandError> {
+pub fn reveal_settings_window(
+    app: AppHandle,
+    height: Option<f64>,
+) -> Result<Option<f64>, CommandError> {
     let win = app
         .get_webview_window(SETTINGS_WINDOW_LABEL)
         .ok_or_else(|| CommandError::Message("设置窗口不存在".into()))?;
     win.show()
         .map_err(|e| CommandError::Message(format!("显示设置窗口失败：{e}")))?;
-    // 量不到高度（理论上不会：根节点有内容）时只显示，不改尺寸
-    if let Some(height) = height.filter(|h| *h >= 1.0) {
-        let scale = win.scale_factor().unwrap_or(1.0);
-        let inner = win
-            .inner_size()
-            .map_err(|e| CommandError::Message(format!("读取设置窗口尺寸失败：{e}")))?
-            .to_logical::<f64>(scale);
-        if (inner.height - height).abs() > 1.0 {
-            win.set_size(LogicalSize::new(inner.width, height))
+    let max_height = max_content_height(&win);
+    let scale = win.scale_factor().unwrap_or(1.0);
+    let inner = win
+        .inner_size()
+        .map_err(|e| CommandError::Message(format!("读取设置窗口尺寸失败：{e}")))?
+        .to_logical::<f64>(scale);
+    if let Some(natural) = height.filter(|h| *h >= 1.0) {
+        let target = match max_height {
+            Some(max) => natural.min(max),
+            None => natural,
+        };
+        if (inner.height - target).abs() > 1.0 {
+            win.set_size(LogicalSize::new(inner.width, target))
                 .map_err(|e| CommandError::Message(format!("校准设置窗口高度失败：{e}")))?;
         }
     }
     let _ = win.set_focus();
-    Ok(())
+    Ok(max_height)
 }
 
 /// 隐藏设置窗口（✕ 与 Esc 调用）：窗口常驻复用，不销毁。

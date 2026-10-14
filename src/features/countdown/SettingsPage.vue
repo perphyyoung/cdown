@@ -58,18 +58,47 @@ function onConfirm() {
   action?.();
 }
 const rootEl = ref<HTMLElement | null>(null);
+// 内容滚动区（标题栏与状态条在它外面，不随滚动跑掉）
+const contentEl = ref<HTMLElement | null>(null);
+// 状态条（msg/error）：固定在滚动区之外，拖到最窄时也看得到
+const statusEl = ref<HTMLElement | null>(null);
 const win = getCurrentWindow();
 
-// 窗口高度自适应内容：宽度归用户（可拖拽），高度归内容——两个权威各管一轴，互不覆盖。
+// 窗口几何：**高度 = min(内容高, 可用高)，宽度是唯一可变的轴**——两个权威各管一轴，互不覆盖。
+// 原生缩放已随 resizable(false) 一起关掉（见 commands/settings.rs），所以：
+//   高度 = 内容；窄窗口下内容可以高过一屏，此时夹在可用高度上（maxHeight），多出来的内容
+//          由内容区纵向滚动，绝不靠"留空白"来凑高度；
+//   宽度 = 用户，只由右边缘的自绘把手驱动（单一方向，不做左边缘跟手）。
 // 只在**可见时**改尺寸：隐藏态 set_size 在 Windows 上会多算一个 caption 高（见 lib.rs 主窗口
 // 尺寸二次恢复注释），首帧尺寸统一由 revealSettingsWindow 在显示后收口。
+// 可用高度由 Rust 在 reveal 时算好返回（工作区底边 - 窗口上边缘 - 余量），见 max_content_height。
+let maxHeight: number | null = null;
 const revealed = ref(false);
 // reveal 防重入：挂载流程与 settings-open 事件可能同时到达
 let revealing = false;
-// 最近一次成型的宽度：宽度变了（用户拖拽）才需要重算高度，高度变化不触发，避免自激
-let fittedWidth = 0;
 // 宽度观察器：窗口宽度一变，文字重排会改变内容高度，需按新宽度重算，否则内容被裁
 let widthObserver: ResizeObserver | null = null;
+// 最近一次成型的尺寸：拖拽热路径直接用已知值，不必每个 pointermove 都去问一次窗口
+let currentWidth = 0;
+let currentHeight = 0;
+// 内容宽度基准：宽度变了才需要重算高度，高度变化不触发，避免自激
+let fittedWidth = 0;
+/// 宽度下限：再窄就没有可读的行宽了
+const MIN_WIDTH = 360;
+/// 右边缘拖拽会话。会话在 pointerdown 里**同步**建立：量窗口几何要等几个 IPC，那期间到达的
+/// pointermove 只记指针位置（lastScreenX），ready 后再按最新位置一次性算宽——少一步都不行。
+/// released 由 pointerup 置位，会话的真正结束交给 applyWidth 收尾：最后一次位移可能还在
+/// await 里没落地，谁都不能先把它丢掉。
+let widthDrag: {
+  pointerId: number;
+  startScreenX: number;
+  lastScreenX: number;
+  startWidth: number;
+  ready: boolean;
+  released: boolean;
+} | null = null;
+let pendingWidth: number | null = null;
+let applyingWidth = false;
 
 // 重开时的瞬态复位：提示条/错误条/录制态/确认框都不该跨次残留
 function resetTransient() {
@@ -84,7 +113,24 @@ function resetTransient() {
   discardedColor.value = null;
 }
 
-// 显示窗口：先量高、再让 Rust 一次性 show + setSize，出现即终态尺寸（不给自己留改尺寸的机会）
+/// 自然高度 = 标题栏高 + 内容区滚动高 + 状态条高。
+/// 用滚动区的 scrollHeight 而不是根节点的 rect：高度被 maxHeight 夹住后，根节点的 rect
+/// 等于窗口高（被裁过），scrollHeight 才是真实内容高
+function naturalHeight(): number {
+  const root = rootEl.value;
+  const content = contentEl.value;
+  if (!root || !content) return 0;
+  const offset = content.getBoundingClientRect().top - root.getBoundingClientRect().top;
+  const status = statusEl.value?.getBoundingClientRect().height ?? 0;
+  return Math.ceil(offset + content.scrollHeight + status);
+}
+
+/// 高度 = min(自然高, 可用高)：被夹住时内容区自己滚动，绝不留空白
+function clampedHeight(natural: number): number {
+  return maxHeight === null ? natural : Math.min(natural, maxHeight);
+}
+
+// 显示窗口：先量高、再让 Rust 一次性 show + setSize（顺带夹到可用高度），出现即终态尺寸
 async function reveal() {
   if (revealing) return;
   revealing = true;
@@ -92,16 +138,24 @@ async function reveal() {
     resetTransient();
     await nextTick(); // 复位后 DOM 才是最终内容，量到的高度才准
     const el = rootEl.value;
-    const height = Math.ceil(el?.getBoundingClientRect().height ?? 0);
-    await commands.revealSettingsWindow(height);
+    const natural = naturalHeight();
+    maxHeight = await commands.revealSettingsWindow(natural);
     revealed.value = true;
+    const scale = await win.scaleFactor();
+    const inner = await win.innerSize();
+    currentWidth = Math.round(inner.toLogical(scale).width);
+    currentHeight = clampedHeight(natural);
     observeWidth(el);
+    // 首帧之后布局才真正稳定（字体/换行落定会改内容高）：再校一次，避免留下空白条
+    settleHeight();
   } finally {
     revealing = false;
   }
 }
 
-// 宽度可拖：拖完重算高度。只比较宽度，自身 setSize 引起的高度变化不会再触发
+// 宽度变化 → 文字重排 → 内容高度可能变化，需按新宽度重算（否则内容被裁）。
+// RO 是「布局已提交」的可靠信号（拖拽期间同样有效，比 rAF 猜帧准），只比较宽度来防自激：
+// 自身 setSize 引起的高度变化不会再次触发重算
 function observeWidth(el: HTMLElement | null) {
   if (!el || widthObserver) return;
   widthObserver = new ResizeObserver((entries) => {
@@ -112,15 +166,122 @@ function observeWidth(el: HTMLElement | null) {
   widthObserver.observe(el);
 }
 
-// 内容变化时的高度自适应：高度没变就不碰窗口（拖字号/透明度滑杆时不抖）
+// 高度自适应内容：高度没变就不碰窗口（拖字号/透明度滑杆时不抖）
 async function fitHeight() {
   await nextTick();
   if (!revealed.value || !rootEl.value) return;
-  const content = Math.ceil(rootEl.value.getBoundingClientRect().height);
+  const want = clampedHeight(naturalHeight());
   const inner = (await win.innerSize()).toLogical(await win.scaleFactor());
-  fittedWidth = Math.round(inner.width);
-  if (content < 1 || Math.abs(inner.height - content) <= 1) return;
-  await win.setSize(new LogicalSize(Math.round(inner.width), content));
+  currentWidth = Math.round(inner.width);
+  currentHeight = Math.round(inner.height);
+  if (want < 1 || Math.abs(inner.height - want) <= 1) return;
+  await win.setSize(new LogicalSize(Math.round(inner.width), want));
+  currentHeight = want;
+}
+
+// 改宽度后 webview 是异步重排的：立刻量到的是**旧排版**高度，只能等两帧再补一次
+// （与 DatePickerWindow.fitHeight 的双 rAF 同源）。合并到一帧里，避免拖拽时反复 setSize
+let settleFrame = 0;
+
+function settleHeight() {
+  if (settleFrame) return;
+  settleFrame = requestAnimationFrame(() => {
+    settleFrame = requestAnimationFrame(() => {
+      settleFrame = 0;
+      void fitHeight();
+    });
+  });
+}
+
+// —— 宽度拖拽：只做右边缘（原生热区已随 resizable(false) 全关，左侧不动）——
+// 用屏幕坐标差算宽度：screenX 是逻辑像素，与窗口逻辑尺寸同量纲；差值始终相对 pointerdown
+// 起点，且右边缘拖拽不动窗口位置，因此不存在"窗口跟着光标跑"的反馈
+async function onWidthHandleDown(e: PointerEvent) {
+  if (e.button !== 0) return;
+  // 上一次会话还没松手（理论上不会重叠）：忽略；已松手但仍在收尾：让新会话接管，
+  // 否则连拖第二下会被静默吞掉
+  if (widthDrag && !widthDrag.released) return;
+  widthDrag = null;
+  e.preventDefault();
+  // 会话先同步建立（几何待补）：量窗口几何要等几个 IPC，那期间的 pointermove 不能丢
+  const drag = {
+    pointerId: e.pointerId,
+    startScreenX: e.screenX,
+    lastScreenX: e.screenX,
+    startWidth: 0,
+    ready: false,
+    released: false,
+  };
+  widthDrag = drag;
+  window.addEventListener("pointermove", onWidthHandleMove);
+  window.addEventListener("pointerup", onWidthHandleUp);
+  window.addEventListener("pointercancel", onWidthHandleUp);
+  // 指针捕获只是锦上添花（监听本来就在 window 上），失败不能连累会话
+  try {
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  } catch {
+    // 合成事件/元素已卸载时可能失败，忽略
+  }
+
+  const scale = await win.scaleFactor();
+  const inner = (await win.innerSize()).toLogical(scale);
+  if (widthDrag !== drag) return; // IPC 期间会话已正常收尾（没有待落地位移）：别再碰它
+  drag.startWidth = inner.width;
+  drag.ready = true;
+  currentWidth = Math.round(inner.width);
+  currentHeight = Math.round(inner.height);
+  // 无论是否已松手：几何到手后按最后指针位置落地一次，再交给 applyWidth 收尾
+  if (drag.lastScreenX !== drag.startScreenX) pendingWidth = widthFromPointer(drag);
+  await applyWidth();
+}
+
+function onWidthHandleMove(e: PointerEvent) {
+  const drag = widthDrag;
+  if (!drag || e.pointerId !== drag.pointerId) return;
+  drag.lastScreenX = e.screenX;
+  if (!drag.ready) return; // 几何还没量回来：位置已记录，等 pointerdown 那边统一补齐
+  pendingWidth = widthFromPointer(drag);
+  void applyWidth();
+}
+
+/// 指针位移 → 目标宽度：起点宽 + 屏幕位移，夹在 [MIN_WIDTH, 屏幕工作区宽]
+function widthFromPointer(drag: NonNullable<typeof widthDrag>): number {
+  const max = Math.max(MIN_WIDTH, Math.round(window.screen.availWidth));
+  const wanted = Math.round(drag.startWidth + (drag.lastScreenX - drag.startScreenX));
+  return Math.min(max, Math.max(MIN_WIDTH, wanted));
+}
+
+async function applyWidth() {
+  if (applyingWidth) return;
+  applyingWidth = true;
+  try {
+    // 一次移动可能积压多个 pointermove：只一路应用到最新值，不排队也不丢尾
+    while (widthDrag && pendingWidth !== null) {
+      const drag = widthDrag;
+      const width = pendingWidth;
+      pendingWidth = null;
+      if (Math.abs(currentWidth - width) > 1) {
+        await win.setSize(new LogicalSize(width, currentHeight));
+        currentWidth = width;
+        settleHeight(); // RO 会在重排提交后再校一次，这里先给个兜底
+      }
+      if (drag.released && widthDrag === drag) widthDrag = null;
+    }
+    // 未 ready 的会话不能在这里收掉：几何还在路上，位移要等 pointerdown 那边补齐后再落地
+    if (widthDrag?.released && widthDrag.ready) widthDrag = null;
+  } finally {
+    applyingWidth = false;
+  }
+}
+
+function onWidthHandleUp(e: PointerEvent) {
+  const drag = widthDrag;
+  if (!drag || e.pointerId !== drag.pointerId) return;
+  drag.released = true;
+  window.removeEventListener("pointermove", onWidthHandleMove);
+  window.removeEventListener("pointerup", onWidthHandleUp);
+  window.removeEventListener("pointercancel", onWidthHandleUp);
+  void applyWidth().then(settleHeight); // 落地最后一段待应用宽度，再按最终宽度补一次高度
 }
 
 // 隐藏而非关闭：窗口常驻，重开毫秒级且无重载白屏；瞬态与高度在下次 reveal 一并复位
@@ -163,7 +324,12 @@ onUnmounted(() => {
   unlistenOpen?.();
   widthObserver?.disconnect();
   widthObserver = null;
+  if (settleFrame) cancelAnimationFrame(settleFrame);
   document.removeEventListener("keydown", onGlobalKeydown);
+  // 拖拽中途卸载（理论上不会：窗口常驻）也要摘掉全局监听
+  window.removeEventListener("pointermove", onWidthHandleMove);
+  window.removeEventListener("pointerup", onWidthHandleUp);
+  window.removeEventListener("pointercancel", onWidthHandleUp);
 });
 
 async function onFontFamilyChange(value: string) {
@@ -559,10 +725,18 @@ const btnSmCls =
     ref="rootEl"
     role="region"
     aria-label="设置窗口"
-    class="bg-slate-900 text-slate-100"
+    class="relative flex h-full flex-col overflow-hidden bg-slate-900 text-slate-100"
   >
-    <!-- 自绘标题栏（无边框窗口）：设置 | 版本居中 | 关闭 -->
-    <header class="relative flex h-8 shrink-0 items-center px-3" data-tauri-drag-region>
+    <!-- 宽度拖拽热区：仅右边缘一条（高度不可拖，左侧不动，见脚本里的几何约定） -->
+    <div
+      class="absolute inset-y-0 right-0 z-10 w-1.5 cursor-ew-resize touch-none"
+      aria-hidden="true"
+      data-resize-handle="right"
+      @pointerdown="onWidthHandleDown($event)"
+    />
+    <!-- 自绘标题栏（无边框窗口）：设置 | 版本居中 | 关闭。z-20 盖住上面的热区，
+         否则 ✕ 右缘 6px 会变成拖拽起点（标题栏本身还是窗口拖动区） -->
+    <header class="relative z-20 flex h-8 shrink-0 items-center px-3" data-tauri-drag-region>
       <span role="heading" aria-level="1" class="text-sm text-slate-300">设置</span>
       <span
         class="absolute left-1/2 -translate-x-1/2 text-xs text-slate-500"
@@ -578,7 +752,10 @@ const btnSmCls =
         ✕
       </button>
     </header>
-    <div class="p-4">
+    <!-- 内容滚动区：窄窗口下内容会高过一屏，高度被夹住后这里纵向滚动（标题栏/状态条不跟着滚）。
+         高度只按内容（不 flex-grow）：一旦被撑到窗口高，scrollHeight 会饱和成 clientHeight，
+         量高的逻辑就再也看不到内容变矮，窗口只能变高不能缩（底部留白）。 -->
+    <div ref="contentEl" role="group" aria-label="设置项" class="min-h-0 overflow-y-auto p-4">
       <dl class="divide-y divide-slate-700">
         <div class="flex items-center justify-between gap-3 py-3">
           <div class="min-w-0">
@@ -811,7 +988,10 @@ const btnSmCls =
           还原默认
         </button>
       </div>
+    </div>
 
+    <!-- 状态条固定在滚动区之外：拖到最窄时提示恰好会落在屏幕外，滚走了就等于没提示 -->
+    <div v-if="msg || error" ref="statusEl" class="shrink-0 px-4 pb-4">
       <p v-if="msg" class="mt-2 rounded bg-emerald-900/50 px-2 py-1 text-xs text-emerald-200">
         {{ msg }}
       </p>
