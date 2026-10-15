@@ -284,8 +284,19 @@ function onWidthHandleUp(e: PointerEvent) {
   void applyWidth().then(settleHeight); // 落地最后一段待应用宽度，再按最终宽度补一次高度
 }
 
+// 标题栏 ✕ 的悬停态：自绘（同 App.vue 的 headerBtnClass），不用 `:hover`。
+// 点 ✕ 隐藏时指针就停在它上面，WebView2 不会补 `pointerleave`，而窗口重新显示时系统也不会
+// 补 `WM_MOUSEMOVE` —— `:hover` 会一直挂着，唤回后那颗 ✕ 还亮着。
+const closeHot = ref(false);
+
+// 页面转为不可见（最小化 / Win+D / 托盘收起主窗口）＝窗口不再看着指针了，悬停态一律清掉
+function onVisibilityChange(): void {
+  if (document.hidden) closeHot.value = false;
+}
+
 // 隐藏而非关闭：窗口常驻，重开毫秒级且无重载白屏；瞬态与高度在下次 reveal 一并复位
 async function hideSelf() {
+  closeHot.value = false; // 隐藏期间指针不会再产生事件，悬停态必须现在清掉
   revealed.value = false;
   await commands.hideSettingsWindow();
 }
@@ -318,6 +329,7 @@ onMounted(() => {
   // 复用打开：Rust 只 show + 发事件，高度在这里重新量（首次打开由上面的 ready 触发）
   void listen(SETTINGS_OPEN_EVENT, () => void reveal()).then((u) => (unlistenOpen = u));
   document.addEventListener("keydown", onGlobalKeydown);
+  document.addEventListener("visibilitychange", onVisibilityChange);
 });
 
 onUnmounted(() => {
@@ -326,6 +338,7 @@ onUnmounted(() => {
   widthObserver = null;
   if (settleFrame) cancelAnimationFrame(settleFrame);
   document.removeEventListener("keydown", onGlobalKeydown);
+  document.removeEventListener("visibilitychange", onVisibilityChange);
   // 拖拽中途卸载（理论上不会：窗口常驻）也要摘掉全局监听
   window.removeEventListener("pointermove", onWidthHandleMove);
   window.removeEventListener("pointerup", onWidthHandleUp);
@@ -745,8 +758,11 @@ const btnSmCls =
         cdown v{{ appVersion }}
       </span>
       <button
-        class="ml-auto h-8 w-10 text-slate-500 hover:bg-slate-800 hover:text-slate-100"
+        class="ml-auto h-8 w-10"
+        :class="closeHot ? 'bg-slate-800 text-slate-100' : 'text-slate-500'"
         title="关闭（Esc）"
+        @pointerenter="closeHot = true"
+        @pointerleave="closeHot = false"
         @click="hideSelf()"
       >
         ✕

@@ -47,7 +47,10 @@ void listen("settings-changed", () => {
   previewColor.value = null;
   void reload();
 }).then((u) => unlisteners.push(u));
-onUnmounted(() => unlisteners.forEach((u) => u()));
+onUnmounted(() => {
+  unlisteners.forEach((u) => u());
+  document.removeEventListener("visibilitychange", onVisibilityChange);
+});
 
 // 全局字体：设置存的是纯族名，这里拼上默认栈写入 CSS 变量（字体被卸载也不破版）；
 // 空串 = 跟随系统，移除变量回落 style.css 的 :root 默认栈。
@@ -104,6 +107,35 @@ async function openSettings() {
     error.value = String(e);
   }
 }
+
+// 标题栏按钮的悬停态：**自绘**（hoveredKey），不用 `:hover` 伪类。
+// 为什么不能只靠 `:hover`：点 `−` 缩进托盘时指针就停在按钮上，WebView2 不会补 `pointerleave`；
+// 窗口重新显示时系统也不会补 `WM_MOUSEMOVE`（光标没动过），`:hover` 命中会一直挂着 ——
+// 表现就是"缩进托盘再唤回，那颗按钮还亮着"。自绘后只由"指针真的又进来过"决定。
+type HeaderKey = "add" | "fit" | "pin" | "settings" | "hide";
+const hoveredKey = ref<HeaderKey | null>(null);
+
+// 标题栏按钮配色：常亮（已置顶）或正被悬停 → slate-100；悬停再加 slate-800 底
+function headerBtnClass(key: HeaderKey, lit = false): string {
+  const hot = hoveredKey.value === key;
+  const color = lit || hot ? "text-slate-100" : "text-slate-500";
+  return hot ? `${color} bg-slate-800` : color;
+}
+
+// 隐藏到托盘：无边框窗口没有系统按钮（core:window:allow-hide）
+function hideToTray() {
+  // 缩进托盘期间指针不会再产生任何事件，悬停态必须现在清掉（见 hoveredKey 的注释）
+  hoveredKey.value = null;
+  void getCurrentWindow().hide();
+}
+
+// 页面转为不可见（托盘收起、最小化、Win+D）＝窗口不再看着指针了，悬停态一律清掉：
+// 所有隐藏路径的共同兜底，免得只有走 `−` 那条才干净。仅主窗口有标题栏按钮，
+// 其它窗口 hoveredKey 不参与渲染，故不判窗口。
+function onVisibilityChange(): void {
+  if (document.hidden) hoveredKey.value = null;
+}
+document.addEventListener("visibilitychange", onVisibilityChange);
 
 async function onRemove(id: string) {
   try {
@@ -192,15 +224,21 @@ async function menuFitWindow() {
       </span>
       <span class="ml-auto flex items-center" data-tauri-drag-region>
         <button
-          class="flex h-8 w-8 items-center justify-center rounded text-slate-500 hover:bg-slate-800 hover:text-slate-100"
+          class="flex h-8 w-8 items-center justify-center rounded"
+          :class="headerBtnClass('add')"
           title="添加倒计时"
+          @pointerenter="hoveredKey = 'add'"
+          @pointerleave="hoveredKey = null"
           @click="startAdd()"
         >
           +
         </button>
         <button
-          class="flex h-8 w-8 items-center justify-center rounded text-slate-500 hover:bg-slate-800 hover:text-slate-100"
+          class="flex h-8 w-8 items-center justify-center rounded"
+          :class="headerBtnClass('fit')"
           title="自适应宽高"
+          @pointerenter="hoveredKey = 'fit'"
+          @pointerleave="hoveredKey = null"
           @click="menuFitWindow()"
         >
           <svg
@@ -221,9 +259,11 @@ async function menuFitWindow() {
           </svg>
         </button>
         <button
-          class="flex h-8 w-8 items-center justify-center rounded hover:bg-slate-800"
-          :class="settings.alwaysOnTop ? 'text-slate-100' : 'text-slate-500 hover:text-slate-100'"
+          class="flex h-8 w-8 items-center justify-center rounded"
+          :class="headerBtnClass('pin', settings.alwaysOnTop)"
           :title="settings.alwaysOnTop ? '取消置顶' : '置顶'"
+          @pointerenter="hoveredKey = 'pin'"
+          @pointerleave="hoveredKey = null"
           @click="togglePin()"
         >
           <svg
@@ -247,16 +287,22 @@ async function menuFitWindow() {
         </button>
         <button
           ref="gearRef"
-          class="flex h-8 w-8 items-center justify-center rounded text-slate-500 hover:bg-slate-800 hover:text-slate-100"
+          class="flex h-8 w-8 items-center justify-center rounded"
+          :class="headerBtnClass('settings')"
           title="设置"
+          @pointerenter="hoveredKey = 'settings'"
+          @pointerleave="hoveredKey = null"
           @click="openSettings()"
         >
           ⚙
         </button>
         <button
-          class="flex h-8 w-8 items-center justify-center rounded text-slate-500 hover:bg-slate-800 hover:text-slate-100"
+          class="flex h-8 w-8 items-center justify-center rounded"
+          :class="headerBtnClass('hide')"
           title="隐藏到托盘"
-          @click="getCurrentWindow().hide()"
+          @pointerenter="hoveredKey = 'hide'"
+          @pointerleave="hoveredKey = null"
+          @click="hideToTray()"
         >
           −
         </button>
