@@ -300,6 +300,46 @@ export function readWindowState(label: string): Record<string, unknown> {
   return raw[label] ?? {};
 }
 
+/// ---- 窗口搬家（Windows，测试前置用）----
+
+/**
+ * 把某个窗口搬到屏幕上的指定位置（只搬家，不改尺寸）。
+ * 为什么从 OS 侧搬：无边框窗口的标题栏是自绘拖动区，Playwright 送不进原生移动循环；
+ * 而"窗口停在屏幕的哪个高度"会改变设置窗的可用高度上限（工作区底边 − 窗口上边缘），
+ * 是本 spec 必须能摆布的前置条件。**只设场景，不做实现断言**。
+ * 按标题命中（运行前提：本机没有同时跑着 pnpm dev 实例 —— 它的设置窗标题一模一样）；
+ * 搬完由调用方从页面读 screenY 自证搬对了。
+ */
+export function placeWindowAt(title: string, x: number, y: number): void {
+  const script = `
+Add-Type -Namespace T -Name W -MemberDefinition '
+[DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern IntPtr FindWindow(IntPtr c, string n);
+[DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
+';
+$h = [T.W]::FindWindow([IntPtr]::Zero, $env:CDOWN_PLACE_TITLE);
+if ($h -eq [IntPtr]::Zero) { Write-Output "NO_WINDOW"; exit 1 }
+# SWP_NOSIZE(1) | SWP_NOZORDER(4)：尺寸始终由应用自己管
+$ok = [T.W]::SetWindowPos($h, [IntPtr]::Zero, [int]$env:CDOWN_PLACE_X, [int]$env:CDOWN_PLACE_Y, 0, 0, 5)
+if (-not $ok) { Write-Output "SET_FAILED"; exit 2 }
+Write-Output "MOVED"
+`.trimStart();
+  const file = path.join(ROOT, "temp", "place-window.ps1");
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, script);
+  const out = execSync(`powershell -NoProfile -ExecutionPolicy Bypass -File "${file}"`, {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      CDOWN_PLACE_TITLE: title,
+      CDOWN_PLACE_X: String(Math.round(x)),
+      CDOWN_PLACE_Y: String(Math.round(y)),
+    },
+  });
+  if (!out.includes("MOVED")) {
+    throw new Error(`搬窗口失败（${title} → ${x},${y}）：${out.trim() || "无输出"}`);
+  }
+}
+
 /// 落盘的设置（cdown.json；文件不存在视为空，便于断言「还没写入」）
 export function readPersistedSettings(dataDir: string): Record<string, unknown> {
   const file = path.join(dataDir, "cdown.json");

@@ -18,6 +18,7 @@ import {
   launchApp,
   mainPage,
   openSettingsWindow,
+  placeWindowAt,
   test,
   type AppHandle,
 } from "./e2e-helpers";
@@ -30,7 +31,27 @@ interface Geometry {
   width: number;
   height: number;
   screenX: number;
+  /// 窗口上边缘（与工作区同一个坐标系），用来算"屏幕还剩多少高"
+  screenY: number;
+  /// 工作区上边；与 availHeight 合起来就是工作区底边
+  availTop: number;
   availHeight: number;
+}
+
+/// 页面侧"还够多高"：工作区底边 − 窗口上边缘。比应用内部的上限**宽松**（它还要再减 16px 余量），
+/// 所以"够用"的判定是安全的 —— 这里说内容装得下，就必然装得下
+function roomFor(geo: Geometry): number {
+  return geo.availTop + geo.availHeight - geo.screenY;
+}
+
+/// 标题栏 + 状态条占掉的高度（根节点与内容区的高度差；窗口被夹住时也恒定）
+function chromeHeight(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const root = document.querySelector<HTMLElement>('[role="region"][aria-label="设置窗口"]');
+    const content = document.querySelector<HTMLElement>('[aria-label="设置项"]');
+    if (!root || !content) return -1;
+    return Math.round(root.getBoundingClientRect().height - content.getBoundingClientRect().height);
+  });
 }
 
 /// 内容区（设置项那一块，唯一会滚的地方）的滚动指标：
@@ -46,6 +67,9 @@ function geometry(page: Page): Promise<Geometry> {
     width: window.innerWidth,
     height: window.innerHeight,
     screenX: window.screenX,
+    screenY: window.screenY,
+    // `availTop` 是 Chromium 的扩展属性（DOM 类型定义里没有），运行时存在
+    availTop: (window.screen as unknown as { availTop: number }).availTop,
     availHeight: window.screen.availHeight,
   }));
 }
@@ -224,17 +248,25 @@ test.describe("设置窗缩放", () => {
       );
     }
 
-    // 拖宽 → 内容变矮 → 不再需要滚动，也不留空白
+    // 拖宽 → 内容变矮。窗口该不该跟着变矮取决于**屏幕还剩多少**：富余时必须刚好装下，
+    // 已经卡在可用高上（窗口摆得靠下）则继续可滚 —— 两者都对，所以只对前者下硬断言
     await dragRightEdge(400);
     const wide = await settledGeometry();
     const wideBox = await scrollMetrics();
+    const chrome = await chromeHeight(settings);
     e2eLog.info(
-      `[settings-resize] 拖宽后 ${JSON.stringify(wide)} 内容区 ${JSON.stringify(wideBox)}`,
+      `[settings-resize] 拖宽后 ${JSON.stringify(wide)} 内容区 ${JSON.stringify(wideBox)}` +
+        ` 标题栏+状态条 ${chrome} 屏幕余量 ${roomFor(wide) - chrome}`,
     );
     expect(wide.width).toBeGreaterThan(narrow.width + 100);
-    expect(wideBox.scrollHeight, "内容装得下时不该溢出").toBeLessThanOrEqual(
-      wideBox.clientHeight + 1,
-    );
+    expect(wideBox.scrollHeight, "拖宽后内容应变矮（宽度重排生效）").toBeLessThan(box.scrollHeight);
+    expect(wide.height, "拖宽不该让窗口长高").toBeLessThanOrEqual(tall.height + 1);
+    if (roomFor(wide) - chrome >= wideBox.scrollHeight + 24) {
+      // 留 24px 余量：应用内部的上限还要再减 16px，这里宽一点才不会误报
+      expect(wideBox.scrollHeight, "屏幕还有富余时，内容必须刚好装下").toBeLessThanOrEqual(
+        wideBox.clientHeight + 1,
+      );
+    }
     await expectHeightContract(wide);
   });
 
@@ -254,5 +286,56 @@ test.describe("设置窗缩放", () => {
       "拉宽后内容变矮了，窗口底边不该留出空白区域",
     ).toBeLessThanOrEqual(24);
     await expectHeightContract(wide);
+  });
+
+  test("窗口摆到屏幕上方后拖宽：内容刚好装下，不留空白也不出滚动条", async () => {
+    // 专测上一条用例里那条**条件断言**（"屏幕还有富余时内容必须刚好装下"）：窗口越靠上，
+    // 屏幕还能给的高度越多，所以这里把它搬到屏幕上方。原生窗口 Playwright 拖不动，
+    // 只能从 OS 侧搬（属测试前置，不是实现断言）；而可用高度是 reveal 时算的，
+    // 搬完必须关掉重开一次才会按新位置重算。搬完从页面读 screenY 自证搬对了。
+    const before = await settledGeometry();
+    const topY = 40;
+
+    await dragToMinWidth();
+    // 用界面把内容撑高（分级加满 6 级）：先让它被夹住，之后拖宽才看得出"长回来"
+    const add = settings.getByRole("button", { name: "＋ 添加分级" });
+    for (let i = 0; i < 8 && (await add.isEnabled()); i++) {
+      await add.click();
+      await settings.waitForTimeout(60);
+    }
+    await expectHeightContract(await settledGeometry());
+
+    try {
+      placeWindowAt("cdown 设置", before.screenX, topY);
+      await settings.getByTitle("关闭（Esc）").click();
+      settings = await openSettingsWindow(app, main);
+      const reopened = await settledGeometry();
+      expect(
+        reopened.screenY,
+        "窗口应已被搬到屏幕上方（否则本用例覆盖不到目标分支）",
+      ).toBeLessThanOrEqual(topY + 4);
+
+      // 拖宽 → 内容变矮 → 这次必须**刚好装下**
+      await dragRightEdge(600);
+      const wide = await settledGeometry();
+      const box = await scrollMetrics();
+      const chrome = await chromeHeight(settings);
+      e2eLog.info(
+        `[settings-resize] 摆上方后拖宽 ${JSON.stringify(wide)} 内容区 ${JSON.stringify(box)}` +
+          ` 标题栏+状态条 ${chrome} 屏幕余量 ${roomFor(wide) - chrome}`,
+      );
+      expect(wide.width).toBeGreaterThan(reopened.width + 200);
+      // 前提：屏幕富余真的成立。不成立说明这台机器的分辨率/摆放覆盖不到该分支，要吵出来而非静默跳过
+      expect(roomFor(wide) - chrome, "窗口已在屏幕上方，屏幕余量应足够").toBeGreaterThanOrEqual(
+        box.scrollHeight + 24,
+      );
+      expect(box.scrollHeight, "屏幕富余时内容必须刚好装下（不留滚动条）").toBeLessThanOrEqual(
+        box.clientHeight + 1,
+      );
+      await expectHeightContract(wide);
+    } finally {
+      // 还原位置：本文件与 pnpm dev 共用同一份窗口几何
+      placeWindowAt("cdown 设置", before.screenX, before.screenY);
+    }
   });
 });

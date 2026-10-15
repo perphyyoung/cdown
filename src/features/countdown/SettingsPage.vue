@@ -140,6 +140,9 @@ async function reveal() {
     const el = rootEl.value;
     const natural = naturalHeight();
     maxHeight = await commands.revealSettingsWindow(natural);
+    // 记一行可用高上限：排查"窗下有滚动条"时，一眼就能分清是**被夹住**（上限 < 自然高）
+    // 还是"高度没跟上"（上限 > 自然高却没长），不必再反推窗口位置
+    log.info("[settings-window] 自然高", natural, "可用高上限", maxHeight);
     revealed.value = true;
     const scale = await win.scaleFactor();
     const inner = await win.innerSize();
