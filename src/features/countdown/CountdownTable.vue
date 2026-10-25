@@ -273,22 +273,27 @@ function confirmRemove() {
             @contextmenu.prevent="openMenu($event, row.item, 'target')"
             >{{ row.item.target_date }}</span
           >
+          <!-- 名称 / 备注两格可能**没有内容**：行容器是 `grid items-center`，空内容的子项高度为 0，
+               挂在这两格上的右键就永远收不到事件（曾导致"备注为空时右键不出菜单、无法编辑"）。
+               所以格子自己撑满行高（`self-stretch`）当命中区，文本另包一层 —— `truncate` 必须留在
+               内层：放在 flex 容器上会让文本变成匿名 flex item，省略号失效。 -->
           <span
             role="cell"
-            class="truncate fs-base"
+            class="flex min-w-0 items-center justify-center self-stretch fs-base"
             data-col="name"
             :title="row.item.title"
             @contextmenu.prevent="openMenu($event, row.item, 'name')"
-            >{{ row.item.title }}</span
           >
+            <span class="min-w-0 truncate">{{ row.item.title }}</span>
+          </span>
           <span
             role="cell"
-            class="truncate fs-base"
+            class="flex min-w-0 items-center justify-center self-stretch fs-base"
             data-col="note"
             :title="row.item.note ?? ''"
             @contextmenu.prevent="openMenu($event, row.item, 'note')"
           >
-            {{ row.item.note }}
+            <span class="min-w-0 truncate">{{ row.item.note }}</span>
           </span>
         </div>
       </template>
