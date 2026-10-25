@@ -56,4 +56,27 @@ test.describe("行内编辑入口", () => {
 
     await expect(main.getByRole("row").filter({ hasText: "补上的备注" })).toBeVisible();
   });
+
+  test("双击三个可编辑列分别进入编辑并聚焦对应输入框，只读列无反应", async () => {
+    await main.getByTitle("添加倒计时").click();
+    await main.getByPlaceholder("名称").fill("双击行");
+    await main.keyboard.press("Enter");
+    const row = main.getByRole("row").filter({ hasText: "双击行" });
+    await expect(row).toBeVisible();
+
+    // ① 双击空备注格：进入编辑、备注框获得焦点
+    await row.locator('[data-col="note"]').dblclick();
+    await expect(main.getByPlaceholder("备注"), "双击备注列应进入编辑").toBeFocused();
+    await main.keyboard.press("Escape");
+    await expect(main.getByPlaceholder("备注")).toHaveCount(0);
+
+    // ② 双击名称格：聚焦名称框
+    await row.locator('[data-col="name"]').dblclick();
+    await expect(main.getByPlaceholder("名称"), "双击名称列应聚焦名称框").toBeFocused();
+    await main.keyboard.press("Escape");
+
+    // ③ 双击只读的倒计时列：不进入编辑
+    await row.locator('[data-col="countdown"]').dblclick();
+    await expect(main.getByPlaceholder("备注"), "只读列双击不该进入编辑").toHaveCount(0);
+  });
 });

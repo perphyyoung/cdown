@@ -170,8 +170,10 @@ function isEditing(id: string) {
   return editing.value?.mode === "edit" && editing.value.id === id;
 }
 
-// 行右键菜单：只挂在可编辑的三列上（第一列倒计时只读，不响应右键）。
-// 删除走自定义确认对话框（双击误确认，菜单内两步确认已废弃）。
+// 行内编辑入口：**三个可编辑列**（目标日期 / 名称 / 备注）各有两种入口 —— 右键菜单、双击，
+// 都走 `startEdit(item, field)`，`field` 决定编辑行打开时聚焦哪个输入框。
+// 第一列倒计时只读，两种入口都不挂。
+// 删除只从菜单走，且用自定义确认对话框（双击误确认，菜单内两步确认已废弃）。
 const menu = ref<{ x: number; y: number; item: CountdownItem; field: EditField } | null>(null);
 const pendingDelete = ref<CountdownItem | null>(null);
 
@@ -271,18 +273,21 @@ function confirmRemove() {
             class="fs-sm"
             data-col="target"
             @contextmenu.prevent="openMenu($event, row.item, 'target')"
+            @dblclick="startEdit(row.item, 'target')"
             >{{ row.item.target_date }}</span
           >
           <!-- 名称 / 备注两格可能**没有内容**：行容器是 `grid items-center`，空内容的子项高度为 0，
-               挂在这两格上的右键就永远收不到事件（曾导致"备注为空时右键不出菜单、无法编辑"）。
+               挂在这两格上的右键/双击就永远收不到事件（曾导致"备注为空时右键不出菜单、无法编辑"）。
                所以格子自己撑满行高（`self-stretch`）当命中区，文本另包一层 —— `truncate` 必须留在
-               内层：放在 flex 容器上会让文本变成匿名 flex item，省略号失效。 -->
+               内层：放在 flex 容器上会让文本变成匿名 flex item，省略号失效。
+               双击与右键共用 `startEdit(item, field)`：`field` 决定编辑行的初始焦点（见 EditableRow）。 -->
           <span
             role="cell"
             class="flex min-w-0 items-center justify-center self-stretch fs-base"
             data-col="name"
             :title="row.item.title"
             @contextmenu.prevent="openMenu($event, row.item, 'name')"
+            @dblclick="startEdit(row.item, 'name')"
           >
             <span class="min-w-0 truncate">{{ row.item.title }}</span>
           </span>
@@ -292,6 +297,7 @@ function confirmRemove() {
             data-col="note"
             :title="row.item.note ?? ''"
             @contextmenu.prevent="openMenu($event, row.item, 'note')"
+            @dblclick="startEdit(row.item, 'note')"
           >
             <span class="min-w-0 truncate">{{ row.item.note }}</span>
           </span>
