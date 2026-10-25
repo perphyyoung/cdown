@@ -1,8 +1,8 @@
 {
   "name": "cdown",
   "private": true,
-  "version": "0.1.12",
-  "packageManager": "pnpm@12.4.2",
+  "version": "0.1.13",
+  "packageManager": "pnpm@12.15.0",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
